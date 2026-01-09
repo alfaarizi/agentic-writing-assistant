@@ -20,14 +20,7 @@ class BaseAgent(ABC):
         temperature: float = 0.7,
         tools: Optional[List[Any]] = None,
     ):
-        """
-        Initialize the base agent.
-
-        Args:
-            model: OpenRouter model name (e.g., 'openai/gpt-4o')
-            temperature: Model temperature for generation
-            tools: List of LangChain tools available to the agent
-        """
+        """Initialize the base agent."""
         self.model = model or "openai/gpt-4o"
         self.temperature = temperature
         self.tools = tools or []
@@ -38,13 +31,9 @@ class BaseAgent(ABC):
             self.llm = self._create_llm()
             self._initialize_agent()
 
-    def _create_llm(self) -> BaseChatModel:
-        """
-        Create the LLM instance using OpenRouter.
 
-        Returns:
-            Configured chat model instance
-        """
+    def _create_llm(self) -> BaseChatModel:
+        """Create the LLM instance using OpenRouter."""
         return ChatOpenAI(
             model=self.model,
             temperature=self.temperature,
@@ -55,6 +44,7 @@ class BaseAgent(ABC):
                 "X-Title": "Agentic Writing Assistant",
             },
         )
+
 
     def _initialize_agent(self) -> None:
         """Initialize the agent executor with tools and prompt."""
@@ -67,57 +57,57 @@ class BaseAgent(ABC):
             handle_parsing_errors=True,
         )
 
-    def _create_prompt(self) -> ChatPromptTemplate:
-        """
-        Create the agent prompt template.
 
-        Returns:
-            Chat prompt template for the agent
-        """
-        return ChatPromptTemplate.from_messages(
-            [
-                ("system", self.get_system_prompt()),
-                ("human", "{input}"),
-                MessagesPlaceholder(variable_name="agent_scratchpad"),
-            ]
-        )
+    def _create_prompt(self) -> ChatPromptTemplate:
+        """Create the agent prompt template."""
+        return ChatPromptTemplate.from_messages([
+            ("system", self.get_system_prompt()),
+            ("human", "{input}"),
+            MessagesPlaceholder(variable_name="agent_scratchpad"),
+        ])
+
+
+    async def _generate(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        temperature: Optional[float] = None,
+        response_format: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """Generate text using LLM directly."""
+        if not self.llm:
+            self.llm = self._create_llm()
+
+        llm = self.llm
+        if temperature is not None:
+            llm = llm.bind(temperature=temperature)
+        if response_format:
+            llm = llm.bind(response_format=response_format)
+
+        response = await llm.ainvoke([
+            ("system", system_prompt),
+            ("human", user_prompt),
+        ])
+        return response.content or ""
+
 
     @abstractmethod
     def get_system_prompt(self) -> str:
-        """
-        Get the system prompt for this agent.
-
-        Returns:
-            System prompt string
-        """
+        """Get the system prompt for this agent."""
         pass
 
+
     async def run(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Execute the agent with given input.
-
-        Args:
-            input_data: Input data for the agent
-
-        Returns:
-            Agent execution result
-        """
+        """Execute the agent with given input."""
         if not self.agent_executor:
             raise ValueError("Agent executor not initialized. No tools provided.")
 
         result = await self.agent_executor.ainvoke(input_data)
         return result
 
+
     def run_sync(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Execute the agent synchronously with given input.
-
-        Args:
-            input_data: Input data for the agent
-
-        Returns:
-            Agent execution result
-        """
+        """Execute the agent synchronously with given input."""
         if not self.agent_executor:
             raise ValueError("Agent executor not initialized. No tools provided.")
 
