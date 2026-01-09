@@ -1,0 +1,35 @@
+[project]
+name = "agentic-writing-assistant"
+version = "0.1.0"
+description = "An intelligent, multi-agent AI system for generating personalized writing"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "fastapi>=0.104.1",
+    "uvicorn[standard]==0.24.0",
+    "pydantic==2.5.0",
+    "pydantic-settings==2.1.0",
+    "langchain==0.1.20",
+    "langchain-openai==0.1.7",
+    "langchain-community==0.0.38",
+    "langchain-core==0.1.52",
+    "chromadb==0.4.18",
+    "aiosqlite==0.19.0",
+    "httpx==0.25.2",
+    "python-dotenv==1.0.0",
+    "structlog==23.2.0",
+    "python-multipart==0.0.6",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.black]
+line-length = 100
+target-version = ['py311', 'py312']
+
+[tool.isort]
+profile = "black"
+line_length = 100
+

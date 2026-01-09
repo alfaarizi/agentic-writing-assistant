@@ -1,0 +1,30 @@
+# FastAPI and web framework
+fastapi>=0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# LangChain and agent framework
+langchain==0.1.20
+langchain-openai==0.1.7
+langchain-community==0.0.38
+langchain-core==0.1.52
+
+# Vector database (using older version without onnxruntime requirement)
+chromadb==0.4.18
+
+# Database
+aiosqlite==0.19.0
+
+# HTTP client
+httpx==0.25.2
+
+# Environment and configuration
+python-dotenv==1.0.0
+
+# Logging
+structlog==23.2.0
+
+# Utilities
+python-multipart==0.0.6
+
