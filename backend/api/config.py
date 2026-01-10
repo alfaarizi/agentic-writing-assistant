@@ -1,7 +1,7 @@
 """Configuration management for the application."""
 
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     # Application
     API_BASE_URL: str = "/api/v1"
     ENVIRONMENT: str = "development"
+    FRONTEND_URL: str = "http://localhost:5173"
 
     # Quality Configuration
     QUALITY_THRESHOLD: float = 85.0
@@ -57,6 +58,11 @@ class Settings(BaseSettings):
     def is_development(self) -> bool:
         """Check if running in development mode."""
         return self.ENVIRONMENT.lower() == "development"
+
+    @property
+    def BACKEND_CORS_ORIGINS(self) -> List[str]:
+        """Get CORS allowed origins."""
+        return [self.FRONTEND_URL]
 
 
 settings = Settings()

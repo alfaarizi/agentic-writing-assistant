@@ -3,6 +3,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from api.dependencies import database
 from api.config import settings
@@ -24,6 +25,15 @@ app = FastAPI(
     docs_url=f"{settings.API_BASE_URL}/docs",
     redoc_url=f"{settings.API_BASE_URL}/redoc",
     lifespan=lifespan,
+)
+
+# CORS middleware to allow frontend requests
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.BACKEND_CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 

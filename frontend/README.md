@@ -1,6 +1,14 @@
-# Frontend - Streamlit UI
+# Frontend - React + TypeScript + Vite
 
-Simple and clean Streamlit interface for the Agentic Writing Assistant.
+Professional, clean, and minimal UI for the Agentic Writing Assistant.
+
+## Tech Stack
+
+- **React 19** - UI framework
+- **TypeScript** - Type safety
+- **Vite** - Fast build tool
+- **Tailwind CSS** - Utility-first CSS framework
+- **Modern Design** - Clean, minimal, professional UI/UX
 
 ## Features
 
@@ -9,20 +17,17 @@ Simple and clean Streamlit interface for the Agentic Writing Assistant.
 - 📊 Quality metrics and assessment display
 - 💡 Improvement suggestions
 - 📈 Text statistics (word count, pages, etc.)
+- 🔄 Real-time API health monitoring
+- 🎨 Clean, modern, responsive design
 
 ## Setup
 
-**Option 1: Using pyproject.toml (Recommended)**
+1. Install dependencies:
 ```bash
-pip install -e .
+npm install
 ```
 
-**Option 2: Using requirements.txt**
-```bash
-pip install -r requirements.txt
-```
-
-## Running
+## Development
 
 1. **Start the backend server first:**
 ```bash
@@ -30,41 +35,52 @@ cd ../backend
 python -m uvicorn src.main:app --reload
 ```
 
-2. **In a new terminal, start the Streamlit app:**
+2. **Start the frontend dev server:**
 ```bash
-cd frontend
-streamlit run app.py
+npm run dev
 ```
 
 3. **Open your browser:**
-   - The app will automatically open at `http://localhost:8501`
+   - The app will be available at `http://localhost:5173` (Vite default port)
 
-## Usage
+## Build for Production
 
-1. **Set up your profile** (sidebar):
-   - Enter your User ID
-   - Add personal information (name, background, skills)
-   - Set writing preferences (tone, style)
-   - Click "Save Profile"
+```bash
+npm run build
+```
 
-2. **Generate writing** (main tab):
-   - Select writing type
-   - Fill in context information
-   - Set word limit and quality threshold
-   - Click "Generate Writing"
+The built files will be in the `dist/` directory.
 
-3. **View results**:
-   - Generated content
-   - Quality scores and metrics
-   - Text statistics
-   - Improvement suggestions
+## Project Structure
+
+```
+frontend/
+├── src/
+│   ├── lib/
+│   │   └── api.ts          # API client functions
+│   ├── App.tsx             # Main application component
+│   ├── main.tsx            # Entry point
+│   └── index.css           # Global styles with Tailwind
+├── public/                 # Static assets
+├── index.html              # HTML template
+├── tailwind.config.js      # Tailwind configuration
+├── vite.config.ts          # Vite configuration
+└── package.json            # Dependencies and scripts
+```
 
 ## Configuration
 
 The frontend connects to the API at `http://localhost:8000/api/v1` by default.
 
-To change the API URL, edit `app.py`:
-```python
-API_BASE_URL = "http://localhost:8000/api/v1"
+To change the API URL, edit `src/lib/api.ts`:
+```typescript
+const API_BASE_URL = 'http://localhost:8000/api/v1';
 ```
 
+## Design Principles
+
+- **Minimal**: Clean interface without clutter
+- **Professional**: Modern design suitable for business use
+- **Responsive**: Works on desktop, tablet, and mobile
+- **Accessible**: Follows WCAG guidelines
+- **Fast**: Optimized for performance with Vite
