@@ -38,7 +38,8 @@ class PersonalizationAgent(BaseAgent):
         - Meta: Guidelines for natural integration
         """
         return \
-"""You are a Voice Personalization Expert specializing in adapting written content to match individual communication styles.
+"""
+You are a Voice Personalization Expert specializing in adapting written content to match individual communication styles.
 
 # YOUR EXPERTISE
 - Expert in linguistic pattern analysis and voice matching
@@ -191,11 +192,9 @@ AFTER (User: Warm, collaborative, action-oriented):
 
 Return a JSON object with the "content" key:
 
-```json
 {
   "content": "Your complete personalized content here..."
 }
-```
 
 **Rules:**
 - Return ONLY the JSON object
@@ -210,6 +209,69 @@ You're the bridge between generic draft and authentic voice. EditingAgent will p
 """
 
 
+    def get_user_prompt(
+        self,
+        content: str,
+        writing_style_section: str,
+        background_section: str,
+        achievements_section: str,
+        experience_section: str,
+        writing_samples_section: str,
+        additional_context_section: str,
+    ) -> str:
+        """Build user prompt for personalization task.
+
+        Args:
+            content: Draft content to personalize
+            writing_style_section: Pre-formatted style section
+            background_section: Pre-formatted background section
+            achievements_section: Pre-formatted achievements section
+            experience_section: Pre-formatted experience section
+            writing_samples_section: Pre-formatted samples section
+            additional_context_section: Pre-formatted context section
+
+        Returns:
+            Formatted user prompt string
+        """
+        return \
+f"""
+# TASK
+Transform the following draft content to authentically reflect the user's unique voice, style, and background.
+
+# DRAFT CONTENT
+```
+{content}
+```
+
+# USER PROFILE{writing_style_section}{background_section}{achievements_section}{experience_section}{writing_samples_section}{additional_context_section}
+
+# PERSONALIZATION INSTRUCTIONS
+
+Transform the draft by:
+1. **Matching Voice:** Adapt vocabulary, sentence structure, and phrasing to match the user's natural writing style
+2. **Integrating Background:** Weave in specific achievements and experiences naturally (don't just list them)
+3. **Adjusting Tone:** Ensure formality and warmth levels match the user's preferences
+4. **Preserving Message:** Keep the core message and structure intact while making it authentically 'theirs'
+5. **Staying Natural:** Avoid forced mentions; only include background details that fit naturally
+
+# OUTPUT
+
+Return ONLY a JSON object:
+
+{{
+  "content": "Your complete personalized content here..."
+}}
+
+Requirements:
+- No explanations of what you changed
+- No meta-commentary
+- No markdown code blocks
+- No placeholder text
+- Maintain similar length as original
+- Ensure content addresses original purpose
+"""
+
+
     async def personalize(
         self,
         content: str,
@@ -217,130 +279,98 @@ You're the bridge between generic draft and authentic voice. EditingAgent will p
         context: Dict[str, Any] = None,
     ) -> str:
         """Personalize content based on user profile."""
-        profile = await self.database.get_user_profile(user_id)
-
-        if not profile:
+        if not (profile := await self.database.get_user_profile(user_id)):
             return content
 
         profile_dict = profile.model_dump()
-        
-        # Build structured user prompt
-        user_prompt_parts = [
-            "# TASK",
-            "Transform the following draft content to authentically reflect the user's unique voice, style, and background.",
-            "",
-            "# DRAFT CONTENT",
-            "```",
-            content,
-            "```",
-            "",
-            "# USER PROFILE"
-        ]
-        
-        # Add profile sections in organized format
-        if profile_dict.get('writing_style'):
-            user_prompt_parts.extend([
-                "",
-                "## Writing Style Preferences",
-                f"**Tone:** {profile_dict['writing_style'].get('tone', 'Not specified')}",
-                f"**Formality:** {profile_dict['writing_style'].get('formality', 'Not specified')}",
-                f"**Typical Sentence Style:** {profile_dict['writing_style'].get('sentence_style', 'Not specified')}"
-            ])
-        
+
+        # Build writing style section
+        writing_style_section = ""
+        if writing_style := profile_dict.get('writing_style'):
+            writing_style_section = \
+                f"""
+
+                ## Writing Style Preferences
+                **Tone:** {writing_style.get('tone', 'Not specified')}
+                **Formality:** {writing_style.get('formality', 'Not specified')}
+                **Typical Sentence Style:** {writing_style.get('sentence_style', 'Not specified')}
+                """
+
+        # Build background section
+        background_section = ""
         if profile_dict.get('background'):
-            user_prompt_parts.extend([
-                "",
-                "## Background",
-                f"{profile_dict['background']}"
-            ])
-        
-        if profile_dict.get('achievements'):
-            achievements = profile_dict['achievements']
-            if isinstance(achievements, list) and achievements:
-                user_prompt_parts.extend([
-                    "",
-                    "## Key Achievements"
-                ])
-                for achievement in achievements:
-                    user_prompt_parts.append(f"- {achievement}")
-        
-        if profile_dict.get('experience'):
-            experience = profile_dict['experience']
-            if isinstance(experience, list) and experience:
-                user_prompt_parts.extend([
-                    "",
-                    "## Professional Experience"
-                ])
-                for exp in experience:
-                    if isinstance(exp, dict):
-                        user_prompt_parts.append(f"- **{exp.get('title', 'Role')}** at {exp.get('company', 'Company')}")
-                    else:
-                        user_prompt_parts.append(f"- {exp}")
-        
-        if profile_dict.get('writing_samples'):
-            samples = profile_dict['writing_samples']
-            if isinstance(samples, list) and samples:
-                user_prompt_parts.extend([
-                    "",
-                    "## Writing Sample(s)",
-                    "Use these samples to understand the user's natural voice and style:"
-                ])
-                for i, sample in enumerate(samples[:2], 1):  # Limit to 2 samples
-                    user_prompt_parts.extend([
-                        "",
-                        f"**Sample {i}:**",
-                        "```",
-                        sample if isinstance(sample, str) else sample.get('text', ''),
-                        "```"
-                    ])
-        
-        # Add context if provided
+            background_section = \
+                f"""
+
+                ## Background
+                {profile_dict['background']}
+                """
+
+        # Build achievements section
+        achievements_section = ""
+        if (achievements := profile_dict.get('achievements')) and isinstance(achievements, list) and achievements:
+            achievements_section = \
+                f"""
+
+                ## Key Achievements
+                {chr(10).join(f"- {a}" for a in achievements)}
+                """
+
+        # Build experience section
+        experience_section = ""
+        if (experience := profile_dict.get('experience')) and isinstance(experience, list) and experience:
+            experience_section = \
+                f"""
+
+                ## Professional Experience
+                {chr(10).join(f"- **{exp.get('title', 'Role')}** at {exp.get('company', 'Company')}" if isinstance(exp, dict) else f"- {exp}" for exp in experience)}
+                """
+
+        # Build writing samples section
+        writing_samples_section = ""
+        if (samples := profile_dict.get('writing_samples')) and isinstance(samples, list) and samples:
+            sample_items = []
+            for i, s in enumerate(samples[:2], 1):
+                sample_items.append(
+                    f"""
+
+                    **Sample {i}:**
+                    ```
+                    {s if isinstance(s, str) else s.get('text', '')}
+                    ```
+                    """
+                )
+            writing_samples_section = \
+                f"""
+
+                ## Writing Sample(s)
+                Use these samples to understand the user's natural voice and style:
+                {"".join(sample_items)}
+                """
+
+        # Build additional context section
+        additional_context_section = ""
         if context:
-            user_prompt_parts.extend([
-                "",
-                "# ADDITIONAL CONTEXT"
-            ])
-            for key, value in context.items():
-                if value:
-                    key_display = key.replace('_', ' ').title()
-                    user_prompt_parts.append(f"**{key_display}:** {value}")
-        
-        # Add detailed instructions
-        user_prompt_parts.extend([
-            "",
-            "# PERSONALIZATION INSTRUCTIONS",
-            "",
-            "Transform the draft by:",
-            "1. **Matching Voice:** Adapt vocabulary, sentence structure, and phrasing to match the user's natural writing style",
-            "2. **Integrating Background:** Weave in specific achievements and experiences naturally (don't just list them)",
-            "3. **Adjusting Tone:** Ensure formality and warmth levels match the user's preferences",
-            "4. **Preserving Message:** Keep the core message and structure intact while making it authentically 'theirs'",
-            "5. **Staying Natural:** Avoid forced mentions; only include background details that fit naturally",
-            "",
-            "# OUTPUT",
-            "",
-            "Return ONLY a JSON object:",
-            "{",
-            '  "content": "Your complete personalized content here..."',
-            "}",
-            "",
-            "Requirements:",
-            "- No explanations of what you changed",
-            "- No meta-commentary",
-            "- No markdown code blocks",
-            "- No placeholder text",
-            "- Maintain similar length as original",
-            "- Ensure content addresses original purpose"
-        ])
-        
-        user_prompt = "\n".join(user_prompt_parts)
+            additional_context_section = \
+                f"""
+
+                # ADDITIONAL CONTEXT
+                {chr(10).join(f"**{k.replace('_', ' ').title()}:** {v}" for k, v in context.items() if v)}
+                """
 
         response = await self._generate(
             self.get_system_prompt(),
-            user_prompt,
+            self.get_user_prompt(
+                content,
+                writing_style_section,
+                background_section,
+                achievements_section,
+                experience_section,
+                writing_samples_section,
+                additional_context_section,
+            ),
             temperature=self.temperature,
         )
-        
-        # Parse JSON response (parse_json handles markdown cleaning)
+
         result = parse_json(response, {"content": response})
         return result.get("content", response)

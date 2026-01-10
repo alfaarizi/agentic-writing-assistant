@@ -27,7 +27,8 @@ class EditingAgent(BaseAgent):
         - Meta: Quality standards and editorial guidelines
         """
         return \
-"""You are a professional Editor specializing in polishing written communications while preserving the author's authentic voice.
+"""
+You are a professional Editor specializing in polishing written communications while preserving the author's authentic voice.
 
 # YOUR EXPERTISE
 - 15+ years editing business writing, academic applications, and professional correspondence
@@ -213,11 +214,9 @@ Before returning edited content, verify:
 
 Return a JSON object with the "content" key:
 
-```json
 {
   "content": "Your complete refined content here..."
 }
-```
 
 **Rules:**
 - Return ONLY the JSON object
@@ -236,6 +235,84 @@ You're the polish, not the personality. Enhance quality while protecting voiceâ€
 """
 
 
+    def get_user_prompt(self, content: str, grammar_section: str, feedback_section: str) -> str:
+        """Build user prompt for editing task.
+
+        Args:
+            content: Content to refine
+            grammar_section: Pre-formatted grammar section
+            feedback_section: Pre-formatted feedback section
+
+        Returns:
+            Formatted user prompt string
+        """
+        return \
+f"""
+# TASK
+Refine and polish the following content to improve quality while preserving the author's voice and intent.
+
+# CONTENT TO REFINE
+```
+{content}
+```
+
+# ANALYSIS RESULTS{grammar_section}{feedback_section}
+
+# REFINEMENT INSTRUCTIONS
+
+Apply these improvements systematically:
+
+**1. Grammar & Mechanics** (If Issues Found)
+- Fix all grammatical errors identified above
+- Correct punctuation and spelling
+- Ensure subject-verb agreement and proper tense
+
+**2. Clarity & Precision**
+- Eliminate wordiness and redundancy
+- Replace weak verbs with stronger alternatives
+- Simplify unnecessarily complex sentences
+- Remove filler words and empty phrases
+
+**3. Coherence & Flow**
+- Strengthen transitions between ideas
+- Ensure logical progression
+- Improve paragraph unity and focus
+- Address any flow issues identified above
+
+**4. Natural Voice**
+- Remove awkward phrasing
+- Ensure consistent tone
+- Vary sentence structure for better rhythm
+- Keep the author's authentic voice intact
+
+**5. Impact & Persuasiveness**
+- Strengthen key points
+- Ensure active voice where appropriate
+- Make language more precise and compelling
+
+# CRITICAL RULES
+- Preserve the author's voice and personality
+- Maintain the core message and intent
+- Keep the same general structure
+- Don't add new ideas or content
+- Focus on polish and refinement, not rewriting
+
+# OUTPUT
+
+Return ONLY a JSON object:
+
+{{
+  "content": "Your complete refined content here..."
+}}
+
+Do NOT include:
+- Track changes or explanations
+- Meta-commentary
+- Markdown code blocks
+- Any text outside the JSON object
+"""
+
+
     async def refine(
         self,
         content: str,
@@ -244,116 +321,67 @@ You're the polish, not the personality. Enhance quality while protecting voiceâ€
         """Refine content based on feedback and quality analysis."""
         grammar_result = await self.grammar_checker.check(content)
 
-        # Build structured user prompt
-        user_prompt_parts = [
-            "# TASK",
-            "Refine and polish the following content to improve quality while preserving the author's voice and intent.",
-            "",
-            "# CONTENT TO REFINE",
-            "```",
-            content,
-            "```",
-            "",
-            "# ANALYSIS RESULTS"
-        ]
-        
-        # Add grammar analysis
-        user_prompt_parts.extend(["", "## Grammar Check"])
-        
-        if grammar_result and isinstance(grammar_result, dict):
-            error_count = grammar_result.get('error_count', 0)
-            if error_count > 0:
-                user_prompt_parts.append(f"**Errors Found:** {error_count}")
-                matches = grammar_result.get('matches', [])[:10]  # Limit to 10
-                if matches:
-                    user_prompt_parts.append("**Issues:**")
-                    for match in matches:
-                        message = match.get('message', 'Unknown error')
-                        context = match.get('context', {})
-                        text = context.get('text', '') if isinstance(context, dict) else ''
-                        user_prompt_parts.append(f"- {message}" + (f" (in: '{text[:40]}...')" if text else ""))
+        # Build grammar section
+        grammar_section = ""
+        if grammar_result and isinstance(grammar_result, dict) and (error_count := grammar_result.get('error_count', 0)) > 0:
+            matches = grammar_result.get('matches', [])[:10]
+            if matches:
+                issues_list = []
+                for m in matches:
+                    msg = m.get('message', 'Unknown error')
+                    ctx = m.get('context', {})
+                    text = ctx.get('text', '') if isinstance(ctx, dict) else ''
+                    issues_list.append(f"- {msg}" + (f" (in: '{text[:40]}...')" if text else ""))
+                grammar_section = \
+                    f"""
+
+                    ## Grammar Check
+                    **Errors Found:** {error_count}
+                    **Issues:**
+                    {chr(10).join(issues_list)}
+                    """
             else:
-                user_prompt_parts.append("**No grammar errors detected**")
+                grammar_section = \
+                    f"""
+
+                    ## Grammar Check
+                    **Errors Found:** {error_count}
+                    """
         else:
-            user_prompt_parts.append("**No grammar analysis available**")
-        
-        # Add feedback if provided
+            grammar_section = \
+                f"""
+
+                ## Grammar Check
+                **No grammar errors detected**
+                """
+
+        # Build feedback section
+        feedback_section = ""
         if feedback:
-            user_prompt_parts.extend([
-                "",
-                "## Additional Feedback"
-            ])
             if isinstance(feedback, dict):
-                for key, value in feedback.items():
-                    key_display = key.replace('_', ' ').title()
-                    user_prompt_parts.append(f"**{key_display}:** {value}")
+                feedback_section = \
+                    f"""
+
+                    ## Additional Feedback
+                    {chr(10).join(f"**{k.replace('_', ' ').title()}:** {v}" for k, v in feedback.items())}
+                    """
             else:
-                user_prompt_parts.append(str(feedback))
-        
-        # Add refinement instructions
-        user_prompt_parts.extend([
-            "",
-            "# REFINEMENT INSTRUCTIONS",
-            "",
-            "Apply these improvements systematically:",
-            "",
-            "**1. Grammar & Mechanics** (If Issues Found)",
-            "- Fix all grammatical errors identified above",
-            "- Correct punctuation and spelling",
-            "- Ensure subject-verb agreement and proper tense",
-            "",
-            "**2. Clarity & Precision**",
-            "- Eliminate wordiness and redundancy",
-            "- Replace weak verbs with stronger alternatives",
-            "- Simplify unnecessarily complex sentences",
-            "- Remove filler words and empty phrases",
-            "",
-            "**3. Coherence & Flow**",
-            "- Strengthen transitions between ideas",
-            "- Ensure logical progression",
-            "- Improve paragraph unity and focus",
-            "- Address any flow issues identified above",
-            "",
-            "**4. Natural Voice**",
-            "- Remove awkward phrasing",
-            "- Ensure consistent tone",
-            "- Vary sentence structure for better rhythm",
-            "- Keep the author's authentic voice intact",
-            "",
-            "**5. Impact & Persuasiveness**",
-            "- Strengthen key points",
-            "- Ensure active voice where appropriate",
-            "- Make language more precise and compelling",
-            "",
-            "# CRITICAL RULES",
-            "- Preserve the author's voice and personality",
-            "- Maintain the core message and intent",
-            "- Keep the same general structure",
-            "- Don't add new ideas or content",
-            "- Focus on polish and refinement, not rewriting",
-            "",
-            "# OUTPUT",
-            "",
-            "Return ONLY a JSON object:",
-            "{",
-            '  "content": "Your complete refined content here..."',
-            "}",
-            "",
-            "Do NOT include:",
-            "- Track changes or explanations",
-            "- Meta-commentary",
-            "- Markdown code blocks",
-            "- Any text outside the JSON object"
-        ])
-        
-        user_prompt = "\n".join(user_prompt_parts)
+                feedback_section = \
+                    f"""
+
+                    ## Additional Feedback
+                    {str(feedback)}
+                    """
 
         response = await self._generate(
             self.get_system_prompt(),
-            user_prompt,
+            self.get_user_prompt(
+                content, 
+                grammar_section, 
+                feedback_section
+            ),
             temperature=self.temperature,
         )
-        
-        # Parse JSON response (parse_json handles markdown cleaning)
+
         result = parse_json(response, {"content": response})
         return result.get("content", response)

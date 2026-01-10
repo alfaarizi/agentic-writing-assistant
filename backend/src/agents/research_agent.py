@@ -9,8 +9,6 @@ from models.writing import (
     WritingRequest,
     CoverLetterContext,
     MotivationalLetterContext,
-    SocialResponseContext,
-    EmailContext,
 )
 from tools.search_tool import SearchTool
 
@@ -35,7 +33,8 @@ class ResearchAgent(BaseAgent):
         - Meta: Accuracy and relevance guidelines
         """
         return \
-"""You are an expert Research Analyst specializing in information synthesis for professional writing applications.
+"""
+You are an expert Research Analyst specializing in information synthesis for professional writing applications.
 
 # YOUR EXPERTISE
 - 10+ years in corporate intelligence and competitive analysis
@@ -170,7 +169,6 @@ Before returning synthesis, verify:
 
 Return a JSON object with an "insights" key:
 
-```json
 {
   "insights": [
     "Founded 2010, cloud infrastructure focus",
@@ -178,7 +176,6 @@ Return a JSON object with an "insights" key:
     "Recent $25M Series B (2025)"
   ]
 }
-```
 
 **Rules:**
 - Return ONLY the JSON object
@@ -192,126 +189,109 @@ You're a filter and synthesizer, not a dumper. WritingAgent needs insights, not 
 """
 
 
+    def get_user_prompt(self, topic: str, search_results_section: str) -> str:
+        """Build user prompt for synthesis task.
+
+        Args:
+            topic: Topic description for synthesis
+            search_results_section: Pre-formatted search results section
+
+        Returns:
+            Formatted user prompt string
+        """
+        return \
+f"""
+# TASK
+Synthesize the following search results into concise, actionable insights about: {topic}
+
+# RAW SEARCH RESULTS{search_results_section}
+
+# SYNTHESIS INSTRUCTIONS
+
+Extract the most relevant and actionable insights:
+1. Focus on facts directly useful for writing
+2. Keep each insight to 10-15 words maximum
+3. Include specific details (numbers, dates, names)
+4. Discard promotional language and fluff
+5. Limit to 5-8 key insights
+
+# OUTPUT FORMAT
+
+Return ONLY a JSON object with this structure (no markdown, no explanations):
+
+{{
+  "insights": ["Insight 1", "Insight 2", "Insight 3"]
+}}
+
+Each insight must be:
+- Factual and verifiable
+- Concise (10-15 words max)
+- Directly relevant to the topic
+- Free of promotional language
+- Limit to 5-8 insights total
+"""
+
+
     async def research(self, request: WritingRequest) -> Dict[str, Any]:
         """Research information based on writing request type."""
         context = request.context
 
         if isinstance(context, CoverLetterContext):
-            # Gather raw search results
             company_results, job_results = await asyncio.gather(
                 self.search_tool.search(f"{context.company} company information", max_results=5),
                 self.search_tool.search(f"{context.job_title} position requirements", max_results=5),
             )
-            
-            # Synthesize company information
-            company_info = await self._synthesize_results(
-                company_results,
-                f"Company: {context.company}",
-                "company_info"
+
+            company_info, job_info = await asyncio.gather(
+                self._synthesize(company_results, f"Company: {context.company}"),
+                self._synthesize(job_results, f"Job: {context.job_title} at {context.company}"),
             )
-            
-            # Synthesize job information
-            job_info = await self._synthesize_results(
-                job_results,
-                f"Job: {context.job_title} at {context.company}",
-                "job_info"
-            )
-            
-            return {
-                "company_info": company_info,
-                "job_info": job_info
-            }
+
+            return {"company_info": company_info, "job_info": job_info}
 
         if isinstance(context, MotivationalLetterContext):
-            # Gather raw search results
             program_results = await self.search_tool.search(
                 f"{context.program_name} program information", max_results=5
             )
-            
-            # Synthesize program information
-            program_info = await self._synthesize_results(
-                program_results,
-                f"Program: {context.program_name}",
-                "program_info"
-            )
-            
-            return {"program_info": program_info}
 
-        if isinstance(context, (SocialResponseContext, EmailContext)):
-            return {}
+            program_info = await self._synthesize(
+                program_results, f"Program: {context.program_name}"
+            )
+            return {"program_info": program_info}
 
         return {}
     
-    async def _synthesize_results(
+    
+    async def _synthesize(
         self,
         search_results: List[Dict[str, str]],
-        topic: str,
-        category: str
+        topic: str
     ) -> List[str]:
         """Synthesize search results using LLM."""
         if not search_results:
             return []
-        
-        # Build user prompt with search results
-        user_prompt_parts = [
-            "# TASK",
-            f"Synthesize the following search results into concise, actionable insights about: {topic}",
-            "",
-            "# RAW SEARCH RESULTS",
-        ]
-        
-        for i, result in enumerate(search_results, 1):
-            user_prompt_parts.extend([
-                "",
-                f"## Result {i}",
-                f"**Title:** {result.get('title', 'N/A')}",
-                f"**URL:** {result.get('url', 'N/A')}",
-                f"**Snippet:**",
-                result.get('snippet', 'N/A'),
-            ])
-        
-        user_prompt_parts.extend([
-            "",
-            "# SYNTHESIS INSTRUCTIONS",
-            "",
-            "Extract the most relevant and actionable insights:",
-            "1. Focus on facts directly useful for writing",
-            "2. Keep each insight to 10-15 words maximum",
-            "3. Include specific details (numbers, dates, names)",
-            "4. Discard promotional language and fluff",
-            "5. Limit to 5-8 key insights",
-            "",
-            "# OUTPUT FORMAT",
-            "",
-            "Return ONLY a JSON object with this structure (no markdown, no explanations):",
-            "{",
-            '  "insights": ["Insight 1", "Insight 2", "Insight 3"]',
-            "}",
-            "",
-            "Each insight must be:",
-            "- Factual and verifiable",
-            "- Concise (10-15 words max)",
-            "- Directly relevant to the topic",
-            "- Free of promotional language",
-            "- Limit to 5-8 insights total"
-        ])
-        
-        user_prompt = "\n".join(user_prompt_parts)
-        
-        # Use LLM to synthesize
+
+        search_results_section = "".join(
+            f"""
+            ## Result {i}
+            **Title:** {r.get('title', 'N/A')}
+            **URL:** {r.get('url', 'N/A')}
+            **Snippet:**
+            {r.get('snippet', 'N/A')}
+            """
+            for i, r in enumerate(search_results, 1)
+        )
+
         response = await self._generate(
             self.get_system_prompt(),
-            user_prompt,
+            self.get_user_prompt(topic, search_results_section),
             temperature=self.temperature,
         )
-        
-        # Parse JSON response (parse_json handles markdown cleaning)
+
         result = parse_json(response, {"insights": []})
         insights = result.get("insights", [])
-        
-        # Validate and return
-        if insights and isinstance(insights, list):
-            return [str(insight) for insight in insights[:8]]
-        
-        # Fallback: return snippets if parsing fails
-        return [result.get('snippet', '')[:100] for result in search_results[:5]]
+
+        # Return 8 parsed insights or fallback to raw snippets
+        if insights:
+            return [str(i) for i in insights[:8]]
+        return [r.get('snippet', '')[:100] for r in search_results[:5]]

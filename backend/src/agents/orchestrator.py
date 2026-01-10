@@ -61,31 +61,6 @@ class OrchestratorAgent(BaseAgent):
         self.event_queue: Optional[asyncio.Queue[str]] = None
 
 
-    def _emit(
-        self, 
-        stage: str, 
-        progress: int,
-        message: str, 
-        data: Any = None
-    ) -> None:
-        """Emit event to queue if configured."""
-        if not self.event_queue:
-            return
-        
-        stream_event = StreamEvent(
-            stage=stage,
-            progress=progress,
-            message=message,
-            timestamp=datetime.now(timezone.utc).isoformat()
-        )
-        
-        stream_event_dict = asdict(stream_event)
-        if data is not None:
-            stream_event_dict['data'] = data
-        
-        self.event_queue.put_nowait(json.dumps(stream_event_dict))
-
-
     def get_system_prompt(self) -> str:
         """Get system prompt for orchestrator agent.
         
@@ -99,7 +74,8 @@ class OrchestratorAgent(BaseAgent):
         This prompt serves as documentation and potential future LLM-based routing.
         """
         return \
-"""You are the Orchestrator responsible for coordinating a multi-agent writing generation system.
+"""
+You are the Orchestrator responsible for coordinating a multi-agent writing generation system.
 
 # YOUR EXPERTISE
 - Expert in workflow orchestration and agent coordination
@@ -335,3 +311,28 @@ You ensure high-quality, personalized writing delivered efficiently and reliably
                 updated_at=created_at,
                 error=str(e),
             )
+        
+
+    def _emit(
+        self, 
+        stage: str, 
+        progress: int,
+        message: str, 
+        data: Any = None
+    ) -> None:
+        """Emit event to queue if configured."""
+        if not self.event_queue:
+            return
+        
+        stream_event = StreamEvent(
+            stage=stage,
+            progress=progress,
+            message=message,
+            timestamp=datetime.now(timezone.utc).isoformat()
+        )
+        
+        stream_event_dict = asdict(stream_event)
+        if data is not None:
+            stream_event_dict['data'] = data
+        
+        self.event_queue.put_nowait(json.dumps(stream_event_dict))

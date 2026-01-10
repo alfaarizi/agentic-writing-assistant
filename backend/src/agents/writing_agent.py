@@ -26,7 +26,8 @@ class WritingAgent(BaseAgent):
         - Meta: Tone, style, and behavioral guidelines
         """
         return \
-"""You are a professional Content Writer with expertise in crafting compelling, authentic written communications. You specialize in cover letters, motivational letters, professional emails, and social responses.
+"""
+You are a professional Content Writer with expertise in crafting compelling, authentic written communications. You specialize in cover letters, motivational letters, professional emails, and social responses.
 
 # YOUR EXPERTISE
 - 10+ years experience in professional business writing
@@ -122,11 +123,9 @@ You work within a multi-agent writing system where:
 
 Return a JSON object with the "content" key:
 
-```json
 {
   "content": "Your complete written content here..."
 }
-```
 
 **Rules:**
 - Return ONLY the JSON object
@@ -141,6 +140,64 @@ Focus on structure and clarity. PersonalizationAgent will adapt the voice, and E
 """
 
 
+    def get_user_prompt(
+        self,
+        writing_type_display: str,
+        context_section: str,
+        requirements_section: str,
+        research_section: str,
+        profile_section: str,
+        additional_section: str,
+    ) -> str:
+        """Build user prompt for writing task.
+
+        Args:
+            writing_type_display: Display name of writing type
+            context_section: Pre-formatted context section
+            requirements_section: Pre-formatted requirements section
+            research_section: Pre-formatted research section
+            profile_section: Pre-formatted profile section
+            additional_section: Pre-formatted additional instructions section
+
+        Returns:
+            Formatted user prompt string
+        """
+        return \
+f"""
+# TASK
+Write a {writing_type_display} that is compelling, well-structured, and professionally crafted.
+
+# WRITING TYPE
+{writing_type_display}
+
+# CONTEXT{context_section}
+# REQUIREMENTS{requirements_section}{research_section}{profile_section}{additional_section}
+
+# OUTPUT INSTRUCTIONS
+Write the complete content now. Remember to:
+- Follow the structure appropriate for this writing type
+- Integrate research naturally without listing facts
+- Use specific examples and metrics where relevant
+- Maintain a professional yet authentic tone
+- Ensure logical flow and smooth transitions
+- Address all requirements mentioned above
+
+# OUTPUT
+
+Return ONLY a JSON object:
+
+{{
+  "content": "Your complete written content here..."
+}}
+
+Do NOT include:
+- Meta-commentary or explanations
+- Alternative versions
+- Markdown code blocks
+- Any text outside the JSON object
+"""
+
+
     async def write(
         self,
         request: WritingRequest,
@@ -148,119 +205,93 @@ Focus on structure and clarity. PersonalizationAgent will adapt the voice, and E
         user_profile: Dict[str, Any] = None,
     ) -> str:
         """Generate initial writing draft."""
+        # Build context section
         context_dict = request.context.model_dump()
+        context_section = \
+            f"""
+            {chr(10).join(f"**{k.replace('_', ' ').title()}:** {v}" for k, v in context_dict.items() if v)}
+            """
+
+        # Build requirements section
         requirements_dict = request.requirements.model_dump()
-        
-        # Format writing type for display
-        writing_type_display = request.type.replace('_', ' ').title()
-        
-        # Build user prompt with clear structure
-        user_prompt_parts = [
-            f"# TASK",
-            f"Write a {writing_type_display} that is compelling, well-structured, and professionally crafted.",
-            "",
-            "# WRITING TYPE",
-            f"{writing_type_display}",
-            "",
-            "# CONTEXT",
-        ]
-        
-        # Add context details in readable format
-        for key, value in context_dict.items():
-            if value:
-                key_display = key.replace('_', ' ').title()
-                user_prompt_parts.append(f"**{key_display}:** {value}")
-        
-        user_prompt_parts.extend([
-            "",
-            "# REQUIREMENTS",
-        ])
-        
-        # Add requirements in readable format
-        for key, value in requirements_dict.items():
-            if value is not None:
-                key_display = key.replace('_', ' ').title()
-                user_prompt_parts.append(f"- **{key_display}:** {value}")
-        
-        # Add research data if available
+        requirements_section = \
+            f"""
+            {chr(10).join(f"- **{k.replace('_', ' ').title()}:** {v}" for k, v in requirements_dict.items() if v is not None)}
+            """
+
+        # Build research section
+        research_section = ""
         if research_data:
-            user_prompt_parts.extend([
-                "",
-                "# RESEARCH INSIGHTS",
-                "Use the following research to inform your writing:"
-            ])
-            for key, value in research_data.items():
-                if value:
-                    key_display = key.replace('_', ' ').title()
-                    user_prompt_parts.append(f"")
-                    user_prompt_parts.append(f"**{key_display}:**")
-                    if isinstance(value, list):
-                        for item in value:
-                            user_prompt_parts.append(f"- {item}")
+            research_items = []
+            for k, v in research_data.items():
+                if v:
+                    key_display = k.replace('_', ' ').title()
+                    if isinstance(v, list):
+                        research_items.append(
+                            f"""
+                            **{key_display}:**
+                            {chr(10).join(f"- {item}" for item in v)}
+                            """
+                        )
                     else:
-                        user_prompt_parts.append(f"{value}")
-        
-        # Add user profile if available
+                        research_items.append(
+                            f"""
+                            **{key_display}:**
+                            {v}
+                            """
+                        )
+            research_section = \
+                f"""
+
+                # RESEARCH INSIGHTS
+                Use the following research to inform your writing:
+                {"".join(research_items)}
+                """
+
+        # Build user profile section
+        profile_section = ""
         if user_profile:
-            user_prompt_parts.extend([
-                "",
-                "# USER BACKGROUND",
-                "Consider the following user information for context (personalization will be applied later):"
-            ])
-            for key, value in user_profile.items():
-                if value and key not in ['created_at', 'updated_at', 'user_id']:
-                    key_display = key.replace('_', ' ').title()
-                    if isinstance(value, list):
-                        user_prompt_parts.append(f"**{key_display}:** {', '.join(value)}")
-                    elif isinstance(value, dict):
-                        user_prompt_parts.append(f"**{key_display}:**")
-                        for k, v in value.items():
-                            user_prompt_parts.append(f"  - {k.replace('_', ' ').title()}: {v}")
+            profile_items = []
+            for k, v in user_profile.items():
+                if v and k not in ['created_at', 'updated_at', 'user_id']:
+                    key_display = k.replace('_', ' ').title()
+                    if isinstance(v, list):
+                        profile_items.append(f"**{key_display}:** {', '.join(v)}")
+                    elif isinstance(v, dict):
+                        dict_items = chr(10).join(f"  - {dk.replace('_', ' ').title()}: {dv}" for dk, dv in v.items())
+                        profile_items.append(f"**{key_display}:**\n{dict_items}")
                     else:
-                        user_prompt_parts.append(f"**{key_display}:** {value}")
-        
-        # Add additional info if provided
+                        profile_items.append(f"**{key_display}:** {v}")
+            profile_section = \
+                f"""
+
+                # USER BACKGROUND
+                Consider the following user information for context (personalization will be applied later):
+                {chr(10).join(profile_items)}
+                """
+
+        # Build additional info section
+        additional_section = ""
         if request.additional_info:
-            user_prompt_parts.extend([
-                "",
-                "# ADDITIONAL INSTRUCTIONS",
-                request.additional_info
-            ])
-        
-        # Add final instructions
-        user_prompt_parts.extend([
-            "",
-            "# OUTPUT INSTRUCTIONS",
-            "Write the complete content now. Remember to:",
-            "- Follow the structure appropriate for this writing type",
-            "- Integrate research naturally without listing facts",
-            "- Use specific examples and metrics where relevant",
-            "- Maintain a professional yet authentic tone",
-            "- Ensure logical flow and smooth transitions",
-            "- Address all requirements mentioned above",
-            "",
-            "# OUTPUT",
-            "",
-            "Return ONLY a JSON object:",
-            "{",
-            '  "content": "Your complete written content here..."',
-            "}",
-            "",
-            "Do NOT include:",
-            "- Meta-commentary or explanations",
-            "- Alternative versions",
-            "- Markdown code blocks",
-            "- Any text outside the JSON object"
-        ])
-        
-        user_prompt = "\n".join(user_prompt_parts)
+            additional_section = \
+                f"""
+
+                # ADDITIONAL INSTRUCTIONS
+                {request.additional_info}
+                """
 
         response = await self._generate(
             self.get_system_prompt(),
-            user_prompt,
+            self.get_user_prompt(
+                request.type.replace('_', ' ').title(),
+                context_section,
+                requirements_section,
+                research_section,
+                profile_section,
+                additional_section,
+            ),
             temperature=self.temperature,
         )
-        
-        # Parse JSON response (parse_json handles markdown cleaning)
+
         result = parse_json(response, {"content": response})
         return result.get("content", response)

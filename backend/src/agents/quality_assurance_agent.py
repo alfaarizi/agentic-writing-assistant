@@ -237,7 +237,6 @@ Appropriate Scores:
 
 Return a valid JSON object with this exact structure:
 
-```json
 {
   "quality_metrics": {
     "overall_score": 87.5,
@@ -253,7 +252,6 @@ Return a valid JSON object with this exact structure:
     "estimated_pages": 1.2
   }
 }
-```
 
 **Rules:**
 - Return ONLY the JSON object
@@ -265,6 +263,79 @@ Your scores directly impact workflow iteration. Be fair, objective, and consiste
 """
 
 
+    def get_user_prompt(
+        self,
+        content: str,
+        stats: Dict[str, Any],
+        grammar_section: str,
+        requirements_section: str,
+    ) -> str:
+        """Build user prompt for quality assessment task.
+
+        Args:
+            content: Content to evaluate
+            stats: Text statistics dictionary
+            grammar_section: Pre-formatted grammar section
+            requirements_section: Pre-formatted requirements section
+
+        Returns:
+            Formatted user prompt string
+        """
+        return \
+f"""
+# TASK
+Evaluate the following content and provide quality scores across all dimensions.
+
+# CONTENT TO EVALUATE
+```
+{content}
+```
+
+# TEXT STATISTICS
+**Word Count:** {stats['words']} (accurate)
+**Character Count:** {stats['characters']} (accurate)
+**Characters (no spaces):** {stats['characters_no_spaces']} (accurate)
+**Line Count:** {stats['lines']}
+**Paragraph Count (auto):** {stats['paragraphs']} (please revise if incorrect)
+**Page Estimate (auto):** {stats['pages']} (please revise if incorrect)
+
+# GRAMMAR ANALYSIS{grammar_section}{requirements_section}
+
+# EVALUATION INSTRUCTIONS
+
+Assess the content across all 7 quality dimensions:
+1. **Overall Score**: Weighted average of all dimensions
+2. **Coherence**: Logical flow, transitions, structure
+3. **Naturalness**: Authentic voice, human-like phrasing
+4. **Grammar Accuracy**: Based on the grammar analysis above
+5. **Completeness**: Addresses objectives and requirements
+6. **Lexical Quality**: Vocabulary richness and precision
+7. **Personalization**: Authentic user voice and details
+
+Also revise the paragraph count and page estimate if the automated counts seem incorrect based on actual structure.
+
+# OUTPUT
+
+Return ONLY a JSON object (no markdown code blocks, no explanations):
+
+{{
+  "quality_metrics": {{
+    "overall_score": 87.5,
+    "coherence": 90,
+    "naturalness": 85,
+    "grammar_accuracy": 95,
+    "completeness": 88,
+    "lexical_quality": 82,
+    "personalization": 85
+  }},
+  "text_stats_revisions": {{
+    "paragraph_count": 4,
+    "estimated_pages": 1.2
+  }}
+}}
+"""
+
+
     async def assess(
         self,
         content: str,
@@ -272,213 +343,155 @@ Your scores directly impact workflow iteration. Be fair, objective, and consiste
         quality_threshold: float = 85.0,
     ) -> Tuple[WritingAssessment, List[str]]:
         """Assess writing quality using LLM evaluation.
-        
+
         Returns:
             Tuple of (WritingAssessment, suggestions: List[str])
         """
-        # Get text statistics (trust words/characters)
-        stats = self.text_analyzer.get_all_stats(content)
-        
-        # Get grammar analysis
+        # Get text statistics and grammar analysis
+        text_stats = self.text_analyzer.get_all_stats(content)
         grammar_result = await self.grammar_checker.check(content, use_grammarly=False)
-        
-        # Build user prompt for LLM evaluation
-        user_prompt_parts = [
-            "# TASK",
-            "Evaluate the following content and provide quality scores across all dimensions.",
-            "",
-            "# CONTENT TO EVALUATE",
-            "```",
-            content,
-            "```",
-            "",
-            "# TEXT STATISTICS",
-            f"**Word Count:** {stats['words']} (accurate)",
-            f"**Character Count:** {stats['characters']} (accurate)",
-            f"**Characters (no spaces):** {stats['characters_no_spaces']} (accurate)",
-            f"**Line Count:** {stats['lines']}",
-            f"**Paragraph Count (auto):** {stats['paragraphs']} (please revise if incorrect)",
-            f"**Page Estimate (auto):** {stats['pages']} (please revise if incorrect)",
-            "",
-            "# GRAMMAR ANALYSIS",
-        ]
-        
-        # Format grammar errors
-        if grammar_result and grammar_result.get('error_count', 0) > 0:
-            user_prompt_parts.extend([
-                f"**Total Errors Found:** {grammar_result['error_count']}",
-                "",
-                "**Issues:**"
-            ])
-            for match in grammar_result.get('matches', [])[:10]:  # Limit to 10
+        grammar_error_count = grammar_result.get('error_count', 0) if grammar_result else 0
+
+        # Build grammar section
+        if grammar_error_count > 0:
+            issues_list = []
+            for match in grammar_result.get('matches', [])[:10]:
                 message = match.get('message', 'Unknown error')
-                context = match.get('context', {})
-                text = context.get('text', '') if isinstance(context, dict) else ''
-                user_prompt_parts.append(f"- {message}" + (f" (in: '{text[:50]}')" if text else ""))
+                context_text = match.get('context', {}).get('text', '')
+                issues_list.append(
+                    f"- {message}{(' (in: \'' + context_text[:50] + '\')' if context_text else '')}"
+                )
+            
+            grammar_section = \
+                f"""
+                **Total Errors Found:** {grammar_error_count}
+
+                **Issues:**
+                {chr(10).join(issues_list)}
+                """
         else:
-            user_prompt_parts.append("**No grammar errors detected**")
-        
-        # Add requirements context if provided
-        requirements_dict = (
-            requirements.model_dump() if isinstance(requirements, WritingRequirements) else requirements or {}
-        )
-        
-        if requirements_dict:
-            user_prompt_parts.extend([
-                "",
-                "# REQUIREMENTS",
-            ])
-            for key, value in requirements_dict.items():
-                if value is not None:
-                    key_display = key.replace('_', ' ').title()
-                    user_prompt_parts.append(f"- **{key_display}:** {value}")
-        
-        # Add evaluation instructions
-        user_prompt_parts.extend([
-            "",
-            "# EVALUATION INSTRUCTIONS",
-            "",
-            "Assess the content across all 7 quality dimensions:",
-            "1. **Overall Score**: Weighted average of all dimensions",
-            "2. **Coherence**: Logical flow, transitions, structure",
-            "3. **Naturalness**: Authentic voice, human-like phrasing",
-            "4. **Grammar Accuracy**: Based on the grammar analysis above",
-            "5. **Completeness**: Addresses objectives and requirements",
-            "6. **Lexical Quality**: Vocabulary richness and precision",
-            "7. **Personalization**: Authentic user voice and details",
-            "",
-            "Also revise the paragraph count and page estimate if the automated counts seem incorrect based on actual structure.",
-            "",
-            "# OUTPUT",
-            "",
-            "Return ONLY a JSON object (no markdown code blocks, no explanations):",
-            "",
-            '{',
-            '  "quality_metrics": {',
-            '    "overall_score": 87.5,',
-            '    "coherence": 90,',
-            '    "naturalness": 85,',
-            '    "grammar_accuracy": 95,',
-            '    "completeness": 88,',
-            '    "lexical_quality": 82,',
-            '    "personalization": 85',
-            '  },',
-            '  "text_stats_revisions": {',
-            '    "paragraph_count": 4,',
-            '    "estimated_pages": 1.2',
-            '  }',
-            '}'
-        ])
-        
-        user_prompt = "\n".join(user_prompt_parts)
-        
-        # Get LLM evaluation
+            grammar_section = \
+                """
+                **No grammar errors detected**
+                """
+
+        # Build requirements section
+        requirements_section_dict = requirements.model_dump() if isinstance(requirements, WritingRequirements) else requirements or {}
+        requirements_section = \
+            f"""
+
+            # REQUIREMENTS
+            {chr(10).join(f"- **{k.replace('_', ' ').title()}:** {v}" for k, v in requirements_section_dict.items() if v is not None)}
+            """ if requirements_section_dict else ""
+
         response = await self._generate(
             self.get_system_prompt(),
-            user_prompt,
+            self.get_user_prompt(
+                content, 
+                text_stats, 
+                grammar_section, 
+                requirements_section
+            ),
             temperature=self.temperature,
         )
-        
-        # Default values for fallback
-        error_count = grammar_result.get('error_count', 0) if grammar_result else 0
-        grammar_score = max(60, 100 - (error_count * 3))
-        
-        default_evaluation = {
+
+        # Parse evaluation with defaults
+        # Fallback grammar score: 3 points penalty per error, minimum 60
+        fallback_grammar_score = float(max(60, 100 - (grammar_error_count * 3)))
+        evaluation = parse_json(response, {
             "quality_metrics": {
                 "overall_score": 75.0,
                 "coherence": 75.0,
                 "naturalness": 75.0,
-                "grammar_accuracy": float(grammar_score),
+                "grammar_accuracy": fallback_grammar_score,
                 "completeness": 75.0,
                 "lexical_quality": 75.0,
                 "personalization": 70.0
             },
             "text_stats_revisions": {
-                "paragraph_count": stats['paragraphs'],
-                "estimated_pages": stats['pages']
+                "paragraph_count": text_stats['paragraphs'],
+                "estimated_pages": text_stats['pages']
             }
-        }
-        
-        # Parse JSON response (parse_json handles markdown cleaning)
-        evaluation = parse_json(response, default_evaluation)
-        
-        # Extract quality metrics
-        metrics_dict = evaluation.get('quality_metrics', {})
+        })
+
+        # Build quality metrics
+        quality_metrics_dict = evaluation.get('quality_metrics', {})
         quality_metrics = QualityMetrics(
-            overall_score=float(metrics_dict.get('overall_score', 75.0)),
-            coherence=float(metrics_dict.get('coherence', 75.0)),
-            naturalness=float(metrics_dict.get('naturalness', 75.0)),
-            grammar_accuracy=float(metrics_dict.get('grammar_accuracy', grammar_score)),
-            completeness=float(metrics_dict.get('completeness', 75.0)),
-            lexical_quality=float(metrics_dict.get('lexical_quality', 75.0)),
-            personalization=float(metrics_dict.get('personalization', 70.0)),
+            overall_score=float(quality_metrics_dict.get('overall_score', 75.0)),
+            coherence=float(quality_metrics_dict.get('coherence', 75.0)),
+            naturalness=float(quality_metrics_dict.get('naturalness', 75.0)),
+            grammar_accuracy=float(quality_metrics_dict.get('grammar_accuracy', fallback_grammar_score)),
+            completeness=float(quality_metrics_dict.get('completeness', 75.0)),
+            lexical_quality=float(quality_metrics_dict.get('lexical_quality', 75.0)),
+            personalization=float(quality_metrics_dict.get('personalization', 70.0)),
         )
-        
-        # Get revised text stats
-        revisions = evaluation.get('text_stats_revisions', {})
-        text_stats = TextStats(
-            word_count=stats['words'],
-            character_count=stats['characters'],
-            character_count_no_spaces=stats['characters_no_spaces'],
-            paragraph_count=revisions.get('paragraph_count', stats['paragraphs']),
-            line_count=stats['lines'],
-            estimated_pages=revisions.get('estimated_pages', stats['pages']),
+
+        # Build revised text stats
+        text_stats_revisions_dict = evaluation.get('text_stats_revisions', {})
+        text_stats_revisions = TextStats(
+            word_count=text_stats['words'],
+            character_count=text_stats['characters'],
+            character_count_no_spaces=text_stats['characters_no_spaces'],
+            paragraph_count=text_stats_revisions_dict.get('paragraph_count', text_stats['paragraphs']),
+            line_count=text_stats['lines'],
+            estimated_pages=text_stats_revisions_dict.get('estimated_pages', text_stats['pages']),
         )
-        
-        # Check requirements compliance with updated text_stats
+
+        # Check requirements compliance
         requirements_checks = {}
-        
-        if max_words := requirements_dict.get("max_words"):
-            requirements_checks["max_words"] = text_stats.word_count <= max_words
-        
-        if min_words := requirements_dict.get("min_words"):
-            requirements_checks["min_words"] = text_stats.word_count >= min_words
-        
-        if max_pages := requirements_dict.get("max_pages"):
-            requirements_checks["max_pages"] = text_stats.estimated_pages <= max_pages
-        
-        # Create assessment
+        for check, value in [
+            ('max_words', requirements_section_dict.get('max_words')),
+            ('min_words', requirements_section_dict.get('min_words')),
+            ('max_pages', requirements_section_dict.get('max_pages'))
+        ]:
+            if not value:
+                continue
+            if check == 'max_words':
+                requirements_checks[check] = text_stats_revisions.word_count <= value
+            elif check == 'min_words':
+                requirements_checks[check] = text_stats_revisions.word_count >= value
+            elif check == 'max_pages':
+                requirements_checks[check] = text_stats_revisions.estimated_pages <= value
+
         assessment = WritingAssessment(
             quality_metrics=quality_metrics,
-            text_stats=text_stats,
+            text_stats=text_stats_revisions,
             requirements_checks=requirements_checks,
         )
-        
-        # Generate suggestions
-        suggestions = self._get_suggestions(assessment, quality_threshold)
-        
-        return assessment, suggestions
+
+        return assessment, self._suggest(assessment, quality_threshold)
 
 
-    def _get_suggestions(
+    def _suggest(
         self,
         assessment: WritingAssessment,
         quality_threshold: float,
     ) -> List[str]:
         """Generate suggestions based on assessment results."""
         suggestions = []
-        
+        quality_metrics = assessment.quality_metrics
+
         # Check requirement violations
-        if assessment.requirements_checks and not all(assessment.requirements_checks.values()):
-            failed_checks = [k for k, v in assessment.requirements_checks.items() if not v]
-            suggestions.append(f"Requirements not met: {', '.join(failed_checks)}")
-        
+        if assessment.requirements_checks:
+            if failed := [k for k, v in assessment.requirements_checks.items() if not v]:
+                suggestions.append(f"Requirements not met: {', '.join(failed)}")
+
         # Check quality threshold
-        if assessment.quality_metrics.overall_score < quality_threshold:
-            suggestions.append(f"Quality score ({assessment.quality_metrics.overall_score:.1f}) below threshold ({quality_threshold})")
-            
-            # Add dimension-specific suggestions
-            if assessment.quality_metrics.coherence < quality_threshold:
-                suggestions.append("Improve coherence: strengthen transitions and logical flow")
-            if assessment.quality_metrics.naturalness < quality_threshold:
-                suggestions.append("Enhance naturalness: use more conversational phrasing")
-            if assessment.quality_metrics.grammar_accuracy < 90:
+        if quality_metrics.overall_score < quality_threshold:
+            suggestions.append(f"Quality score ({quality_metrics.overall_score:.1f}) below threshold ({quality_threshold})")
+
+            for dimension, suggestion in {
+                'coherence': "Improve coherence: strengthen transitions and logical flow",
+                'naturalness': "Enhance naturalness: use more conversational phrasing",
+                'completeness': "Improve completeness: address all requirements more fully",
+                'lexical_quality': "Enhance vocabulary: reduce repetition, use more precise words",
+                'personalization': "Strengthen personalization: integrate more authentic voice"
+            }.items():
+                if getattr(quality_metrics, dimension) < quality_threshold:
+                    suggestions.append(suggestion)
+
+            # Special case for grammar: enforce >=90% accuracy
+            if quality_metrics.grammar_accuracy < 90:
                 suggestions.append("Address grammar issues identified in analysis")
-            if assessment.quality_metrics.completeness < quality_threshold:
-                suggestions.append("Improve completeness: address all requirements more fully")
-            if assessment.quality_metrics.lexical_quality < quality_threshold:
-                suggestions.append("Enhance vocabulary: reduce repetition, use more precise words")
-            if assessment.quality_metrics.personalization < quality_threshold:
-                suggestions.append("Strengthen personalization: integrate more authentic voice")
-        
+
         return suggestions
