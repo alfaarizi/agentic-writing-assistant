@@ -102,7 +102,7 @@ export function WritingForm({ userId, onGenerate, loading, disabled }: WritingFo
           <Tabs value={writingType} onValueChange={(v) => setWritingType(v as WritingType)} className="w-full">
             <TabsList className="grid w-full grid-cols-4 h-8 p-1 bg-muted rounded-none border-b border-border">
               <TabsTrigger value="cover_letter" className="text-xs h-7 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
-                Cover Letter
+                Cover
               </TabsTrigger>
               <TabsTrigger value="motivational_letter" className="text-xs h-7 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
                 Motivational
