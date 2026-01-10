@@ -15,6 +15,7 @@ from models.writing import (
     QualityMetrics,
     SocialResponseContext,
     TextStats,
+    WritingAssessment,
     WritingContext,
     WritingRequest,
     WritingRequirements,
@@ -33,6 +34,7 @@ __all__ = [
     "WritingRequirements",
     "QualityMetrics",
     "TextStats",
+    "WritingAssessment",
     # User models
     "UserProfile",
     "PersonalInfo",

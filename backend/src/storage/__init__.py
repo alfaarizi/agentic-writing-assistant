@@ -1,11 +1,9 @@
-"""Storage modules for vector DB and document store."""
+"""Storage modules for database and vector DB."""
 
-from storage.document_store import DocumentStore
-from storage.profile_manager import ProfileManager
+from storage.database import Database
 from storage.vector_db import VectorDB
 
 __all__ = [
-    "DocumentStore",
-    "ProfileManager",
+    "Database",
     "VectorDB",
 ]

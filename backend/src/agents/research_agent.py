@@ -1,8 +1,16 @@
 """Research agent for gathering information."""
 
-from typing import Dict, Any, List
+import asyncio
+from typing import Dict, Any
 
 from agents.base_agent import BaseAgent
+from models.writing import (
+    WritingRequest,
+    CoverLetterContext,
+    MotivationalLetterContext,
+    SocialResponseContext,
+    EmailContext,
+)
 from tools.search_tool import SearchTool
 
 
@@ -31,13 +39,24 @@ You focus on finding accurate, relevant, and up-to-date information.
 """
 
 
-    async def research(
-        self, 
-        query: str,
-        max_results: int = 5,
-    ) -> List[Dict[str, str]]:
-        """Research information using search tools."""
-        return await self.search_tool.search(
-            query, 
-            max_results=max_results
-        )
+    async def research(self, request: WritingRequest) -> Dict[str, Any]:
+        """Research information based on writing request type."""
+        context = request.context
+
+        if isinstance(context, CoverLetterContext):
+            company_info, job_info = await asyncio.gather(
+                self.search_tool.search(f"{context.company} company information", max_results=5),
+                self.search_tool.search(f"{context.job_title} position requirements", max_results=5),
+            )
+            return {"company_info": company_info, "job_info": job_info}
+
+        if isinstance(context, MotivationalLetterContext):
+            program_info = await self.search_tool.search(
+                f"{context.program_name} program information", max_results=5
+            )
+            return {"program_info": program_info}
+
+        if isinstance(context, (SocialResponseContext, EmailContext)):
+            return {}
+
+        return {}

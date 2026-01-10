@@ -1,7 +1,8 @@
 """Writing request and response models."""
 
-from dataclasses import dataclass, field
-from typing import List, Literal, Optional, Union
+from typing import Dict, List, Literal, Optional, Union
+
+from pydantic import BaseModel, Field
 
 
 # ============================================
@@ -10,32 +11,28 @@ from typing import List, Literal, Optional, Union
 # Context models for different writing types
 
 
-@dataclass
-class CoverLetterContext:
+class CoverLetterContext(BaseModel):
     """Context for cover letter writing."""
 
     job_title: str
     company: str
 
 
-@dataclass
-class MotivationalLetterContext:
+class MotivationalLetterContext(BaseModel):
     """Context for motivational letter writing."""
 
     program_name: str
     scholarship_name: Optional[str] = None
 
 
-@dataclass
-class SocialResponseContext:
+class SocialResponseContext(BaseModel):
     """Context for social media response writing."""
 
     post_content: str
     reply_to: Optional[str] = None
 
 
-@dataclass
-class EmailContext:
+class EmailContext(BaseModel):
     """Context for email writing."""
 
     reply_to: str
@@ -56,8 +53,7 @@ WritingContext = Union[
 # Models for writing generation requests
 
 
-@dataclass
-class WritingRequirements:
+class WritingRequirements(BaseModel):
     """Requirements for writing generation."""
 
     max_words: Optional[int] = None
@@ -69,8 +65,7 @@ class WritingRequirements:
     mode: Literal["quality", "balanced", "fast"] = "balanced"
 
 
-@dataclass
-class WritingRequest:
+class WritingRequest(BaseModel):
     """Request for writing generation."""
 
     user_id: str
@@ -86,8 +81,7 @@ class WritingRequest:
 # Models for writing generation responses and metrics
 
 
-@dataclass
-class QualityMetrics:
+class QualityMetrics(BaseModel):
     """Quality metrics for writing evaluation."""
 
     overall_score: float
@@ -99,8 +93,7 @@ class QualityMetrics:
     personalization: float
 
 
-@dataclass
-class TextStats:
+class TextStats(BaseModel):
     """Text statistics."""
 
     word_count: int
@@ -111,16 +104,23 @@ class TextStats:
     estimated_pages: float
 
 
-@dataclass
-class WritingResponse:
+class WritingAssessment(BaseModel):
+    """Writing quality assessment including metrics, stats, and requirement checks."""
+
+    quality_metrics: QualityMetrics
+    text_stats: TextStats
+    requirements_checks: Dict[str, bool] = Field(default_factory=dict)
+
+
+class WritingResponse(BaseModel):
     """Response for writing generation."""
 
     request_id: str
     status: Literal["completed", "processing", "failed"]
     content: Optional[str] = None
-    quality_metrics: Optional[QualityMetrics] = None
-    text_stats: Optional[TextStats] = None
-    suggestions: List[str] = field(default_factory=list)
+    assessment: Optional[WritingAssessment] = None
+    suggestions: List[str] = Field(default_factory=list)
     iterations: int = 0
     created_at: str = ""
+    updated_at: str = ""
     error: Optional[str] = None

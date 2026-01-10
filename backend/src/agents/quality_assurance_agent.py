@@ -1,12 +1,11 @@
 """Quality assurance agent for final validation."""
 
-from dataclasses import asdict
-from typing import Dict, Any, Union
+from typing import Dict, Any, List, Tuple, Union
 
 from agents.base_agent import BaseAgent
 from tools.text_analyzer import TextAnalyzer
 from tools.coherence_analyzer import CoherenceAnalyzer
-from models.writing import QualityMetrics, TextStats, WritingRequirements
+from models.writing import WritingAssessment, QualityMetrics, TextStats, WritingRequirements
 
 
 class QualityAssuranceAgent(BaseAgent):
@@ -40,11 +39,16 @@ You provide detailed quality metrics and determine if content meets the required
         self,
         content: str,
         requirements: Union[WritingRequirements, Dict[str, Any]] = None,
-    ) -> QualityMetrics:
-        """Assess and score writing quality."""
+        quality_threshold: float = 85.0,
+    ) -> Tuple[WritingAssessment, List[str]]:
+        """Assess writing quality and return assessment with suggestions.
+        
+        Returns:
+            Tuple of (WritingAssessment, suggestions: List[str])
+        """
+        # Calculate quality metrics
         coherence_result = await self.coherence_analyzer.analyze(content)
-
-        return QualityMetrics(
+        quality_metrics = QualityMetrics(
             overall_score=coherence_result.get("score", 50),
             coherence=coherence_result.get("score", 50),
             naturalness=75.0,
@@ -54,12 +58,9 @@ You provide detailed quality metrics and determine if content meets the required
             personalization=70.0,
         )
 
-
-    def calculate_text_stats(self, content: str) -> TextStats:
-        """Calculate text statistics."""
+        # Calculate text statistics
         stats = self.text_analyzer.get_all_stats(content)
-
-        return TextStats(
+        text_stats = TextStats(
             word_count=stats["words"],
             character_count=stats["characters"],
             character_count_no_spaces=stats["characters_no_spaces"],
@@ -68,24 +69,46 @@ You provide detailed quality metrics and determine if content meets the required
             estimated_pages=stats["pages"],
         )
 
-
-    def check_requirements(
-        self,
-        text_stats: TextStats,
-        requirements: Union[WritingRequirements, Dict[str, Any]],
-    ) -> Dict[str, bool]:
-        """Check if content meets requirements."""
-        requirements_dict = asdict(requirements) if isinstance(requirements, WritingRequirements) else requirements
-
-        all_checks = {}
+        # Check requirements compliance
+        requirements_dict = (
+            requirements.model_dump() if isinstance(requirements, WritingRequirements) else requirements or {}
+        )
+        requirements_checks = {}
         
         if max_words := requirements_dict.get("max_words"):
-            all_checks["max_words"] = text_stats.word_count <= max_words
+            requirements_checks["max_words"] = text_stats.word_count <= max_words
         
         if min_words := requirements_dict.get("min_words"):
-            all_checks["min_words"] = text_stats.word_count >= min_words
+            requirements_checks["min_words"] = text_stats.word_count >= min_words
         
         if max_pages := requirements_dict.get("max_pages"):
-            all_checks["max_pages"] = text_stats.estimated_pages <= max_pages
+            requirements_checks["max_pages"] = text_stats.estimated_pages <= max_pages
 
-        return all_checks
+        assessment = WritingAssessment(
+            quality_metrics=quality_metrics,
+            text_stats=text_stats,
+            requirements_checks=requirements_checks,
+        )
+
+        # Generate suggestions
+        suggestions = self._get_suggestions(assessment, quality_threshold)
+
+        return assessment, suggestions
+
+
+    def _get_suggestions(
+        self,
+        assessment: WritingAssessment,
+        quality_threshold: float,
+    ) -> List[str]:
+        """Generate suggestions based on assessment results."""
+        suggestions = []
+
+        if assessment.requirements_checks and not all(assessment.requirements_checks.values()):
+            failed_checks = [k for k, v in assessment.requirements_checks.items() if not v]
+            suggestions.append(f"Requirements not met: {', '.join(failed_checks)}")
+
+        if assessment.quality_metrics.overall_score < quality_threshold:
+            suggestions.append("Quality threshold not fully met. Consider manual review.")
+
+        return suggestions

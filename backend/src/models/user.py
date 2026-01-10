@@ -1,7 +1,8 @@
 """User profile models."""
 
-from dataclasses import dataclass, field
 from typing import List, Optional
+
+from pydantic import BaseModel, Field
 
 
 # ============================================
@@ -10,8 +11,7 @@ from typing import List, Optional
 # Sub-models that compose the user profile
 
 
-@dataclass
-class Education:
+class Education(BaseModel):
     """Education information."""
 
     institution: str
@@ -22,8 +22,7 @@ class Education:
     description: Optional[str] = None
 
 
-@dataclass
-class Experience:
+class Experience(BaseModel):
     """Work experience information."""
 
     company: str
@@ -31,28 +30,26 @@ class Experience:
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     description: Optional[str] = None
-    achievements: List[str] = field(default_factory=list)
+    achievements: List[str] = Field(default_factory=list)
 
 
-@dataclass
-class PersonalInfo:
+class PersonalInfo(BaseModel):
     """Personal information."""
 
     name: str
     background: Optional[str] = None
-    education: List[Education] = field(default_factory=list)
-    experience: List[Experience] = field(default_factory=list)
-    achievements: List[str] = field(default_factory=list)
-    skills: List[str] = field(default_factory=list)
+    education: List[Education] = Field(default_factory=list)
+    experience: List[Experience] = Field(default_factory=list)
+    achievements: List[str] = Field(default_factory=list)
+    skills: List[str] = Field(default_factory=list)
 
 
-@dataclass
-class WritingPreferences:
+class WritingPreferences(BaseModel):
     """Writing preferences."""
 
     tone: Optional[str] = None
     style: Optional[str] = None
-    common_phrases: List[str] = field(default_factory=list)
+    common_phrases: List[str] = Field(default_factory=list)
 
 
 # ============================================
@@ -61,8 +58,7 @@ class WritingPreferences:
 # Main user profile model
 
 
-@dataclass
-class UserProfile:
+class UserProfile(BaseModel):
     """User profile."""
 
     user_id: str

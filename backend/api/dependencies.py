@@ -1,10 +1,12 @@
 """Shared dependencies for API endpoints."""
 
-from src.storage.document_store import DocumentStore
-from src.storage.vector_db import VectorDB
+from storage.database import Database
+from storage.vector_db import VectorDB
+from agents.orchestrator import OrchestratorAgent
 
 vector_db = VectorDB()
-document_store = DocumentStore()
+database = Database()
+orchestrator = OrchestratorAgent(database=database)
 
 
 async def get_vector_db() -> VectorDB:
@@ -12,7 +14,11 @@ async def get_vector_db() -> VectorDB:
     return vector_db
 
 
-async def get_document_store() -> DocumentStore:
-    """Dependency to get document store instance."""
-    return document_store
+async def get_database() -> Database:
+    """Dependency to get database instance."""
+    return database
 
+
+async def get_orchestrator() -> OrchestratorAgent:
+    """Dependency to get orchestrator agent instance."""
+    return orchestrator

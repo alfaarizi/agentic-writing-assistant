@@ -1,7 +1,8 @@
 """Common models for API responses."""
 
-from dataclasses import dataclass, field
 from typing import Dict, Literal, Optional
+
+from pydantic import BaseModel, Field
 
 
 # ============================================
@@ -10,8 +11,7 @@ from typing import Dict, Literal, Optional
 # Common models for API responses
 
 
-@dataclass
-class ErrorResponse:
+class ErrorResponse(BaseModel):
     """Error response model."""
 
     error: str
@@ -21,12 +21,10 @@ class ErrorResponse:
     timestamp: str = ""
 
 
-@dataclass
-class HealthResponse:
+class HealthResponse(BaseModel):
     """Health check response model."""
 
     status: Literal["healthy", "degraded", "unhealthy"]
     version: str
     timestamp: str
-    services: Dict[str, str] = field(default_factory=dict)
-
+    services: Dict[str, str] = Field(default_factory=dict)

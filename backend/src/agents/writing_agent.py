@@ -1,7 +1,6 @@
 """Writing agent for content generation."""
 
 import json
-from dataclasses import asdict
 from typing import Dict, Any
 
 from agents.base_agent import BaseAgent
@@ -40,9 +39,9 @@ You create authentic, well-structured, and contextually appropriate writing.
         user_profile: Dict[str, Any] = None,
     ) -> str:
         """Generate initial writing draft."""
-        context_dict = asdict(request.context)
-        
-        requirements_dict = asdict(request.requirements)
+        context_dict = request.context.model_dump()
+
+        requirements_dict = request.requirements.model_dump()
 
         user_prompt = \
 f"""

@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from api.dependencies import document_store
+from api.dependencies import database
 from api.config import settings
 
 
@@ -12,7 +12,7 @@ from api.config import settings
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup and shutdown."""
     # Startup
-    await document_store.initialize()
+    await database.initialize()
     yield
     # Shutdown (if needed)
 
