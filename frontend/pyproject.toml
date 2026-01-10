@@ -1,0 +1,26 @@
+[project]
+name = "agentic-writing-assistant-frontend"
+version = "0.1.0"
+description = "Streamlit frontend for Agentic Writing Assistant"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "streamlit>=1.28.0",
+    "httpx>=0.25.2",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["app"]
+
+[tool.black]
+line-length = 100
+target-version = ['py311', 'py312']
+
+[tool.isort]
+profile = "black"
+line_length = 100
+

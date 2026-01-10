@@ -21,14 +21,14 @@ class Database:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
 
 
-    async def _get_connection(self) -> aiosqlite.Connection:
-        """Get a database connection."""
-        return await aiosqlite.connect(self.db_path)
+    def _get_connection(self):
+        """Get a database connection context manager."""
+        return aiosqlite.connect(self.db_path)
 
 
     async def initialize(self) -> None:
         """Initialize database tables with proper normalization and constraints."""
-        async with await self._get_connection() as conn:
+        async with self._get_connection() as conn:
             # Enable foreign keys
             await conn.execute("PRAGMA foreign_keys = ON")
 
@@ -98,7 +98,7 @@ class Database:
         """Save or update a user profile."""
         now = datetime.now(timezone.utc).isoformat()
 
-        async with await self._get_connection() as conn:
+        async with self._get_connection() as conn:
             await conn.execute("PRAGMA foreign_keys = ON")
             await conn.execute(
                 """
@@ -120,7 +120,7 @@ class Database:
 
     async def get_user_profile(self, user_id: str) -> Optional[UserProfile]:
         """Get a user profile by ID."""
-        async with await self._get_connection() as conn:
+        async with self._get_connection() as conn:
             async with conn.execute(
                 "SELECT * FROM user_profiles WHERE user_id = ?", (user_id,)
             ) as cursor:
@@ -138,7 +138,7 @@ class Database:
 
     async def delete_user_profile(self, user_id: str) -> None:
         """Delete a user profile by ID."""
-        async with await self._get_connection() as conn:
+        async with self._get_connection() as conn:
             await conn.execute("PRAGMA foreign_keys = ON")
             await conn.execute("DELETE FROM user_profiles WHERE user_id = ?", (user_id,))
             await conn.commit()
@@ -152,7 +152,7 @@ class Database:
         """Save or update a writing request."""
         now = datetime.now(timezone.utc).isoformat()
 
-        async with await self._get_connection() as conn:
+        async with self._get_connection() as conn:
             await conn.execute("PRAGMA foreign_keys = ON")
             await conn.execute(
                 """
@@ -176,7 +176,7 @@ class Database:
 
     async def get_writing_request(self, request_id: str) -> Optional[WritingRequest]:
         """Get a writing request by ID."""
-        async with await self._get_connection() as conn:
+        async with self._get_connection() as conn:
             async with conn.execute(
                 "SELECT * FROM writing_requests WHERE request_id = ?", (request_id,)
             ) as cursor:
@@ -194,7 +194,7 @@ class Database:
 
     async def get_user_writing_requests(self, user_id: str) -> List[WritingRequest]:
         """Get all writing requests for a user."""
-        async with await self._get_connection() as conn:
+        async with self._get_connection() as conn:
             async with conn.execute(
                 "SELECT * FROM writing_requests WHERE user_id = ? ORDER BY created_at DESC",
                 (user_id,),
@@ -218,7 +218,7 @@ class Database:
 
     async def save_writing_response(self, response: WritingResponse) -> None:
         """Save or update a writing response."""
-        async with await self._get_connection() as conn:
+        async with self._get_connection() as conn:
             await conn.execute("PRAGMA foreign_keys = ON")
             await conn.execute(
                 """
@@ -243,7 +243,7 @@ class Database:
 
     async def get_writing_response(self, request_id: str) -> Optional[WritingResponse]:
         """Get a writing response by request ID."""
-        async with await self._get_connection() as conn:
+        async with self._get_connection() as conn:
             async with conn.execute(
                 "SELECT * FROM writing_responses WHERE request_id = ?", (request_id,)
             ) as cursor:
