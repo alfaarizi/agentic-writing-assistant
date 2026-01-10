@@ -21,7 +21,7 @@ class BaseAgent(ABC):
         tools: Optional[List[Any]] = None,
     ):
         """Initialize the base agent."""
-        self.model = model or "openai/gpt-4o"
+        self.model = model or settings.DEFAULT_MODEL
         self.temperature = temperature
         self.tools = tools or []
         self.agent_executor: Optional[AgentExecutor] = None

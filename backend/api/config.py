@@ -17,6 +17,7 @@ class Settings(BaseSettings):
 
     # LLM Configuration
     OPENROUTER_API_KEY: str
+    DEFAULT_MODEL: str = "google/gemini-2.5-flash"
 
     # Search APIs
     TAVILY_API_KEY: Optional[str] = None
