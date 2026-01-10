@@ -24,7 +24,9 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
   const [style, setStyle] = useState('concise');
 
   useEffect(() => {
-    if (userId) {
+    if (!userId.trim()) return;
+
+    const timer = setTimeout(() => {
       getProfile(userId).then((profile) => {
         if (profile) {
           setName(profile.personal_info.name);
@@ -40,7 +42,9 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
           setStyle('concise');
         }
       });
-    }
+    }, 500);
+
+    return () => clearTimeout(timer);
   }, [userId]);
 
   const handleSave = async () => {

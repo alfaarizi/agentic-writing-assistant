@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { checkHealth, generateWriting, type UserProfile, type WritingRequest, type WritingResponse } from './lib/api';
 import { ProfileForm } from './components/ProfileForm';
 import { WritingForm } from './components/WritingForm';
@@ -17,50 +17,65 @@ function App() {
   const [status, setStatus] = useState<StatusUpdate | null>(null);
   const [generationHistory, setGenerationHistory] = useState<WritingResponse[]>([]);
   const [activeTab, setActiveTab] = useState('generate');
+  const [agentData, setAgentData] = useState<Record<string, any>>({});
+  const agentDataRef = useRef<Record<string, any>>({});
 
-  // Load persisted data from localStorage on mount
   useEffect(() => {
     const savedResult = localStorage.getItem('awa_result');
     const savedHistory = localStorage.getItem('awa_history');
     const savedTab = localStorage.getItem('awa_tab');
+    const savedStatus = localStorage.getItem('awa_status');
+    const savedAgentData = localStorage.getItem('awa_agent_data');
+    const savedProfile = localStorage.getItem('awa_profile');
+    const savedUserId = localStorage.getItem('awa_user_id');
     
     if (savedResult) {
       try {
         setResult(JSON.parse(savedResult));
-      } catch (error) {
-        console.error('Failed to load saved result:', error);
-      }
+      } catch {}
     }
     
     if (savedHistory) {
       try {
         setGenerationHistory(JSON.parse(savedHistory));
-      } catch (error) {
-        console.error('Failed to load saved history:', error);
-      }
+      } catch {}
     }
     
     if (savedTab) {
       setActiveTab(savedTab);
     }
+    
+    if (savedStatus) {
+      try {
+        setStatus(JSON.parse(savedStatus));
+      } catch {}
+    }
+    
+    if (savedAgentData) {
+      try {
+        const parsed = JSON.parse(savedAgentData);
+        setAgentData(parsed);
+        agentDataRef.current = parsed;
+      } catch {}
+    }
+    
+    if (savedUserId) {
+      setUserId(savedUserId);
+    }
+    
+    if (savedProfile) {
+      try {
+        setProfile(JSON.parse(savedProfile));
+      } catch {}
+    }
   }, []);
 
-  // Health check
   useEffect(() => {
     checkHealth().then(setApiHealthy);
     const interval = setInterval(() => checkHealth().then(setApiHealthy), 5000);
     return () => clearInterval(interval);
   }, []);
 
-  const updateStatus = (stage: StatusUpdate['stage'], progress: number, message: string, details?: string) => {
-    setStatus({
-      stage,
-      progress,
-      message,
-      details,
-      timestamp: new Date().toISOString(),
-    });
-  };
 
   const handleGenerate = async (request: WritingRequest) => {
     if (!profile) {
@@ -71,49 +86,51 @@ function App() {
     setLoading(true);
     setStatus(null);
     setResult(null);
+    setAgentData({});
+    agentDataRef.current = {};
 
     try {
-      // Simulate real-time status updates
-      const stages: Array<{ stage: StatusUpdate['stage']; message: string; duration: number }> = [
-        { stage: 'orchestrating', message: 'Initializing generation workflow...', duration: 800 },
-        { stage: 'researching', message: 'Gathering relevant information and context...', duration: 1500 },
-        { stage: 'writing', message: 'Composing your content...', duration: 2000 },
-        { stage: 'assessing', message: 'Evaluating quality metrics...', duration: 1000 },
-        { stage: 'refining', message: 'Optimizing and refining content...', duration: 1200 },
-        { stage: 'personalizing', message: 'Adding personal touches...', duration: 800 },
-      ];
-
-      let totalTime = 0;
-      for (let i = 0; i < stages.length; i++) {
-        const stageData = stages[i];
-        const nextStageTotalTime = totalTime + stageData.duration;
-        const baseProgress = (i / stages.length) * 100;
-        const nextProgress = ((i + 1) / stages.length) * 100;
-
-        updateStatus(stageData.stage, baseProgress, stageData.message);
-
-        await new Promise(resolve => setTimeout(resolve, stageData.duration / 2));
-        updateStatus(stageData.stage, (baseProgress + nextProgress) / 2, stageData.message, `Processing...`);
-
-        await new Promise(resolve => setTimeout(resolve, stageData.duration / 2));
-        totalTime = nextStageTotalTime;
-      }
-
-      // Generate the actual content
-      const response = await generateWriting(request);
-      setResult(response);
-      const newHistory = [response, ...generationHistory.slice(0, 4)];
-      setGenerationHistory(newHistory);
-
-      // Persist to localStorage
-      localStorage.setItem('awa_result', JSON.stringify(response));
-      localStorage.setItem('awa_history', JSON.stringify(newHistory));
-
-      updateStatus('complete', 100, 'Writing generation complete!');
-      setTimeout(() => setStatus(null), 2000);
+      await generateWriting(request, (update: any) => {
+        if (update.type === 'complete') {
+          setResult(update.data);
+          const newHistory = [update.data, ...generationHistory.slice(0, 4)];
+          setGenerationHistory(newHistory);
+          const completeStatus = {
+            stage: 'complete' as const,
+            progress: 100,
+            message: 'Writing generation complete!',
+            timestamp: new Date().toISOString(),
+          };
+          setStatus(completeStatus);
+          localStorage.setItem('awa_result', JSON.stringify(update.data));
+          localStorage.setItem('awa_history', JSON.stringify(newHistory));
+          localStorage.setItem('awa_status', JSON.stringify(completeStatus));
+          localStorage.setItem('awa_agent_data', JSON.stringify(agentDataRef.current));
+        } else {
+          const newStatus = {
+            stage: update.stage,
+            progress: update.progress,
+            message: update.message,
+            timestamp: update.timestamp || new Date().toISOString(),
+          };
+          setStatus(newStatus);
+          if (update.data) {
+            const newAgentData = { ...agentDataRef.current, [update.stage]: update.data };
+            agentDataRef.current = newAgentData;
+            setAgentData(newAgentData);
+            localStorage.setItem('awa_agent_data', JSON.stringify(newAgentData));
+          }
+        }
+      });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      updateStatus('error', 0, 'Generation failed', errorMessage);
+      setStatus({
+        stage: 'error',
+        progress: 0,
+        message: 'Generation failed',
+        details: errorMessage,
+        timestamp: new Date().toISOString(),
+      });
       alert(`Failed to generate writing: ${errorMessage}`);
     } finally {
       setLoading(false);
@@ -126,7 +143,6 @@ function App() {
 
       <main className="mx-auto px-12 md:px-20 py-8">
         <div className="max-w-5xl mx-auto">
-          {/* Main Tabs */}
           <Tabs value={activeTab} onValueChange={(tab) => {
             setActiveTab(tab);
             localStorage.setItem('awa_tab', tab);
@@ -154,18 +170,21 @@ function App() {
               )}
             </TabsList>
 
-            {/* Profile Tab */}
             <TabsContent value="profile" className="space-y-3 focus-visible:outline-none">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                 <div className="lg:col-span-2">
                   <ProfileForm 
                     userId={userId} 
-                    onUserIdChange={setUserId}
-                    onProfileSaved={setProfile} 
+                    onUserIdChange={(newUserId) => {
+                      setUserId(newUserId);
+                      localStorage.setItem('awa_user_id', newUserId);
+                    }}
+                    onProfileSaved={(profile) => {
+                      setProfile(profile);
+                      localStorage.setItem('awa_profile', JSON.stringify(profile));
+                    }} 
                   />
                 </div>
-
-                {/* Sidebar Stats */}
                 <div className="space-y-3">
                   <Card>
                     <CardHeader className="pb-1">
@@ -223,10 +242,8 @@ function App() {
               </div>
             </TabsContent>
 
-            {/* Generate Tab */}
             <TabsContent value="generate" className="space-y-3 focus-visible:outline-none">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-                {/* Form - takes 2/3 on desktop, full on mobile */}
                 <div className="lg:col-span-2 space-y-3">
                   <WritingForm
                     userId={userId}
@@ -234,14 +251,10 @@ function App() {
                     loading={loading}
                     disabled={!apiHealthy || !profile}
                   />
-
-                  {/* Status Monitor - positioned below form */}
                   {(loading || status) && (
-                    <StatusMonitor status={status} isActive={loading} />
+                    <StatusMonitor status={status} isActive={loading} agentData={agentData} />
                   )}
                 </div>
-
-                {/* Sidebar - Current Generation Status */}
                 <div className="space-y-3">
                   <Card className="h-fit">
                     <CardHeader className="pb-1">
@@ -302,12 +315,9 @@ function App() {
               </div>
             </TabsContent>
 
-            {/* Result Tab */}
             {result && (
               <TabsContent value="result" className="space-y-3 focus-visible:outline-none">
                 <WritingResult result={result} />
-
-                {/* Generation History */}
                 {generationHistory.length > 1 && (
                   <Card>
                     <CardHeader className="pb-1">

@@ -1,6 +1,8 @@
 import { CheckCircle2, Clock, AlertCircle, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export interface StatusUpdate {
   stage: 'orchestrating' | 'researching' | 'writing' | 'assessing' | 'refining' | 'personalizing' | 'complete' | 'error';
@@ -13,6 +15,7 @@ export interface StatusUpdate {
 interface StatusMonitorProps {
   status: StatusUpdate | null;
   isActive: boolean;
+  agentData?: Record<string, any>;
 }
 
 const stageConfig = {
@@ -26,7 +29,22 @@ const stageConfig = {
   error: { label: 'Error', color: 'text-red-600', bgColor: 'bg-red-50', borderColor: 'border-red-200' },
 };
 
-export function StatusMonitor({ status, isActive }: StatusMonitorProps) {
+const agentLabels: Record<string, string> = {
+  researching: 'Research Agent',
+  writing: 'Writing Agent',
+  personalizing: 'Personalization Agent',
+  refining: 'Editing Agent',
+  assessing: 'Quality Assurance Agent',
+};
+
+function formatAgentData(data: any): string {
+  if (typeof data === 'string') {
+    return data;
+  }
+  return JSON.stringify(data, null, 2);
+}
+
+export function StatusMonitor({ status, isActive, agentData = {} }: StatusMonitorProps) {
   if (!status && !isActive) return null;
 
   const currentStatus = status || {
@@ -39,6 +57,8 @@ export function StatusMonitor({ status, isActive }: StatusMonitorProps) {
   const config = stageConfig[currentStatus.stage];
   const isLoadingStage = isActive && currentStatus.stage !== 'complete' && currentStatus.stage !== 'error';
   const Icon = isLoadingStage ? Loader2 : currentStatus.stage === 'complete' ? CheckCircle2 : currentStatus.stage === 'error' ? AlertCircle : Clock;
+
+  const agentsWithData = Object.keys(agentData).filter(stage => agentData[stage] !== undefined);
 
   return (
     <Card className={`${config.bgColor} border-2 ${config.borderColor}`}>
@@ -66,6 +86,27 @@ export function StatusMonitor({ status, isActive }: StatusMonitorProps) {
             <p className="text-xs text-muted-foreground font-medium ml-auto">{currentStatus.progress}%</p>
           </div>
         </div>
+
+        {agentsWithData.length > 0 && (
+          <div className="border-t border-border pt-2 mt-2">
+            <Accordion type="multiple" className="w-full">
+              {agentsWithData.map((stage) => (
+                <AccordionItem key={stage} value={stage}>
+                  <AccordionTrigger className="text-xs py-2">
+                    {agentLabels[stage] || stage.charAt(0).toUpperCase() + stage.slice(1)}
+                  </AccordionTrigger>
+                  <AccordionContent className="text-xs">
+                    <ScrollArea className="h-40 border border-border bg-background/50 rounded">
+                      <pre className="p-3 text-xs whitespace-pre-wrap break-words">
+                        {formatAgentData(agentData[stage])}
+                      </pre>
+                    </ScrollArea>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

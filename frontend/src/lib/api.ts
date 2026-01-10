@@ -72,24 +72,23 @@ export async function checkHealth(): Promise<boolean> {
 }
 
 export async function saveProfile(profile: Omit<UserProfile, 'created_at' | 'updated_at'>): Promise<UserProfile> {
-  const response = await fetch(`${API_BASE_URL}/profile`, {
-    method: 'POST',
+  // Check if profile exists first
+  const exists = await getProfile(profile.user_id);
+  
+  // Use PUT if exists, POST if new
+  const method = exists ? 'PUT' : 'POST';
+  const url = exists ? `${API_BASE_URL}/profile/${profile.user_id}` : `${API_BASE_URL}/profile`;
+  
+  const response = await fetch(url, {
+    method,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(profile),
   });
+
   if (!response.ok) {
-    if (response.status === 409) {
-      // Update existing
-      const updateResponse = await fetch(`${API_BASE_URL}/profile/${profile.user_id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(profile),
-      });
-      if (!updateResponse.ok) throw new Error('Failed to update profile');
-      return updateResponse.json();
-    }
-    throw new Error('Failed to save profile');
+    throw new Error(`Failed to ${exists ? 'update' : 'create'} profile`);
   }
+
   return response.json();
 }
 
@@ -104,24 +103,59 @@ export async function getProfile(userId: string): Promise<UserProfile | null> {
   }
 }
 
-export async function generateWriting(request: WritingRequest): Promise<WritingResponse> {
+export type StatusListener = (update: { stage: string; progress: number; message: string; timestamp: string } | { type: 'complete'; data: WritingResponse }) => void;
+
+export async function generateWriting(request: WritingRequest, onStatus?: StatusListener): Promise<WritingResponse> {
   const response = await fetch(`${API_BASE_URL}/writing`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(request),
   });
-  
+
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ detail: 'Failed to generate writing' }));
-    const detail = errorData.detail;
-    
-    const message = Array.isArray(detail)
-      ? detail.map((err: any) => (typeof err === 'string' ? err : `${err.loc?.join('.')}: ${err.msg}`)).join(', ')
-      : detail || 'Failed to generate writing';
-    
-    throw new Error(message);
+    throw new Error('Failed to start writing stream');
   }
-  
-  return response.json();
+
+  const reader = response.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let result: WritingResponse | null = null;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data.type === 'complete') {
+              result = data.data;
+              if (onStatus) {
+                onStatus(data);
+              }
+            } else if (onStatus) {
+              onStatus(data);
+            }
+          } catch {
+            // Skip invalid JSON lines
+          }
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  if (!result) {
+    throw new Error('No result received from stream');
+  }
+
+  return result;
 }
 
