@@ -54,9 +54,9 @@ Context:
 
 Requirements:
 {json.dumps(requirements_dict, indent=2)}
-{'' if not research_data else f'\nResearch Data:\n{json.dumps(research_data, indent=2)}'}
-{'' if not user_profile else f'\nUser Profile:\n{json.dumps(user_profile, indent=2)}'}
-{'' if not request.additional_info else f'\nAdditional Info:\n{request.additional_info}'}
+{'' if not research_data else f'{chr(10)}Research Data:{chr(10)}{json.dumps(research_data, indent=2)}'}
+{'' if not user_profile else f'{chr(10)}User Profile:{chr(10)}{json.dumps(user_profile, indent=2)}'}
+{'' if not request.additional_info else f'{chr(10)}Additional Info:{chr(10)}{request.additional_info}'}
 
 Ensure the content is well-structured, coherent, and addresses all requirements.
 """

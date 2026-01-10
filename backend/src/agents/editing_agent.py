@@ -55,7 +55,7 @@ Grammar Analysis:
 
 Coherence Analysis:
 {coherence_result}
-{'' if not feedback else f'\nFeedback:\n{feedback}'}
+{'' if not feedback else f'{chr(10)}Feedback:{chr(10)}{feedback}'}
 
 Provide an improved version that addresses these issues while maintaining the original intent and style.
 """
