@@ -110,10 +110,18 @@ export async function generateWriting(request: WritingRequest): Promise<WritingR
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(request),
   });
+  
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Failed to generate writing' }));
-    throw new Error(error.detail || 'Failed to generate writing');
+    const errorData = await response.json().catch(() => ({ detail: 'Failed to generate writing' }));
+    const detail = errorData.detail;
+    
+    const message = Array.isArray(detail)
+      ? detail.map((err: any) => (typeof err === 'string' ? err : `${err.loc?.join('.')}: ${err.msg}`)).join(', ')
+      : detail || 'Failed to generate writing';
+    
+    throw new Error(message);
   }
+  
   return response.json();
 }
 

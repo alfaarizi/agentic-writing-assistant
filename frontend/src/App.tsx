@@ -1,405 +1,346 @@
 import { useState, useEffect } from 'react';
-import { checkHealth, saveProfile, getProfile, generateWriting, type UserProfile, type WritingRequest, type WritingResponse } from './lib/api';
+import { checkHealth, generateWriting, type UserProfile, type WritingRequest, type WritingResponse } from './lib/api';
+import { ProfileForm } from './components/ProfileForm';
+import { WritingForm } from './components/WritingForm';
+import { WritingResult } from './components/WritingResult';
+import { StatusMonitor, type StatusUpdate } from './components/StatusMonitor';
+import { Header } from './components/Header';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 function App() {
   const [apiHealthy, setApiHealthy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [result, setResult] = useState<WritingResponse | null>(null);
-  
-  // Form state
   const [userId, setUserId] = useState('user-1');
-  const [name, setName] = useState('');
-  const [background, setBackground] = useState('');
-  const [skills, setSkills] = useState('');
-  const [tone, setTone] = useState('professional');
-  const [style, setStyle] = useState('concise');
-  
-  const [writingType, setWritingType] = useState<'cover_letter' | 'motivational_letter' | 'social_response' | 'email'>('cover_letter');
-  const [jobTitle, setJobTitle] = useState('');
-  const [company, setCompany] = useState('');
-  const [programName, setProgramName] = useState('');
-  const [maxWords, setMaxWords] = useState(500);
-  const [qualityThreshold, setQualityThreshold] = useState(85);
-  const [additionalInfo, setAdditionalInfo] = useState('');
+  const [status, setStatus] = useState<StatusUpdate | null>(null);
+  const [generationHistory, setGenerationHistory] = useState<WritingResponse[]>([]);
+  const [activeTab, setActiveTab] = useState('generate');
 
+  // Load persisted data from localStorage on mount
+  useEffect(() => {
+    const savedResult = localStorage.getItem('awa_result');
+    const savedHistory = localStorage.getItem('awa_history');
+    const savedTab = localStorage.getItem('awa_tab');
+    
+    if (savedResult) {
+      try {
+        setResult(JSON.parse(savedResult));
+      } catch (error) {
+        console.error('Failed to load saved result:', error);
+      }
+    }
+    
+    if (savedHistory) {
+      try {
+        setGenerationHistory(JSON.parse(savedHistory));
+      } catch (error) {
+        console.error('Failed to load saved history:', error);
+      }
+    }
+    
+    if (savedTab) {
+      setActiveTab(savedTab);
+    }
+  }, []);
+
+  // Health check
   useEffect(() => {
     checkHealth().then(setApiHealthy);
     const interval = setInterval(() => checkHealth().then(setApiHealthy), 5000);
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    if (userId) {
-      getProfile(userId).then((p) => {
-        if (p) {
-          setProfile(p);
-          setName(p.personal_info.name);
-          setBackground(p.personal_info.background || '');
-          setSkills(p.personal_info.skills.join(', '));
-          setTone(p.writing_preferences.tone);
-          setStyle(p.writing_preferences.style);
-        }
-      });
-    }
-  }, [userId]);
-
-  const handleSaveProfile = async () => {
-    setLoading(true);
-    try {
-      const saved = await saveProfile({
-        user_id: userId,
-        personal_info: {
-          name,
-          background,
-          education: [],
-          experience: [],
-          achievements: [],
-          skills: skills.split(',').map(s => s.trim()).filter(Boolean),
-        },
-        writing_preferences: {
-          tone,
-          style,
-          common_phrases: [],
-        },
-      });
-      setProfile(saved);
-      alert('Profile saved successfully!');
-    } catch (error) {
-      alert(`Failed to save profile: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setLoading(false);
-    }
+  const updateStatus = (stage: StatusUpdate['stage'], progress: number, message: string, details?: string) => {
+    setStatus({
+      stage,
+      progress,
+      message,
+      details,
+      timestamp: new Date().toISOString(),
+    });
   };
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (request: WritingRequest) => {
     if (!profile) {
       alert('Please save your profile first');
       return;
     }
 
     setLoading(true);
+    setStatus(null);
     setResult(null);
-    
+
     try {
-      let context: Record<string, any> = {};
-      
-      if (writingType === 'cover_letter') {
-        context = { job_title: jobTitle, company };
-      } else if (writingType === 'motivational_letter') {
-        context = { program_name: programName };
-      } else if (writingType === 'social_response') {
-        context = { platform: 'twitter', original_post: additionalInfo };
-      } else {
-        context = { recipient: '', subject: '' };
+      // Simulate real-time status updates
+      const stages: Array<{ stage: StatusUpdate['stage']; message: string; duration: number }> = [
+        { stage: 'orchestrating', message: 'Initializing generation workflow...', duration: 800 },
+        { stage: 'researching', message: 'Gathering relevant information and context...', duration: 1500 },
+        { stage: 'writing', message: 'Composing your content...', duration: 2000 },
+        { stage: 'assessing', message: 'Evaluating quality metrics...', duration: 1000 },
+        { stage: 'refining', message: 'Optimizing and refining content...', duration: 1200 },
+        { stage: 'personalizing', message: 'Adding personal touches...', duration: 800 },
+      ];
+
+      let totalTime = 0;
+      for (let i = 0; i < stages.length; i++) {
+        const stageData = stages[i];
+        const nextStageTotalTime = totalTime + stageData.duration;
+        const baseProgress = (i / stages.length) * 100;
+        const nextProgress = ((i + 1) / stages.length) * 100;
+
+        updateStatus(stageData.stage, baseProgress, stageData.message);
+
+        await new Promise(resolve => setTimeout(resolve, stageData.duration / 2));
+        updateStatus(stageData.stage, (baseProgress + nextProgress) / 2, stageData.message, `Processing...`);
+
+        await new Promise(resolve => setTimeout(resolve, stageData.duration / 2));
+        totalTime = nextStageTotalTime;
       }
 
-      const request: WritingRequest = {
-        user_id: userId,
-        type: writingType,
-        context,
-        requirements: {
-          max_words: maxWords,
-          quality_threshold: qualityThreshold,
-          mode: 'balanced',
-        },
-        additional_info: additionalInfo || undefined,
-      };
-
+      // Generate the actual content
       const response = await generateWriting(request);
       setResult(response);
+      const newHistory = [response, ...generationHistory.slice(0, 4)];
+      setGenerationHistory(newHistory);
+
+      // Persist to localStorage
+      localStorage.setItem('awa_result', JSON.stringify(response));
+      localStorage.setItem('awa_history', JSON.stringify(newHistory));
+
+      updateStatus('complete', 100, 'Writing generation complete!');
+      setTimeout(() => setStatus(null), 2000);
     } catch (error) {
-      alert(`Failed to generate writing: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      updateStatus('error', 0, 'Generation failed', errorMessage);
+      alert(`Failed to generate writing: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-gray-900">✍️ Writing Assistant</h1>
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${apiHealthy ? 'bg-green-500' : 'bg-red-500'}`} />
-              <span className="text-sm text-gray-600">
-                {apiHealthy ? 'API Connected' : 'API Disconnected'}
-              </span>
-            </div>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-background">
+      <Header />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Sidebar - Profile */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">User Profile</h2>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">User ID</label>
-                  <input
-                    type="text"
-                    value={userId}
-                    onChange={(e) => setUserId(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Background</label>
-                  <input
-                    type="text"
-                    value={background}
-                    onChange={(e) => setBackground(e.target.value)}
-                    placeholder="e.g., Software Engineer"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Skills (comma-separated)</label>
-                  <input
-                    type="text"
-                    value={skills}
-                    onChange={(e) => setSkills(e.target.value)}
-                    placeholder="e.g., Python, FastAPI, AI"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tone</label>
-                  <select
-                    value={tone}
-                    onChange={(e) => setTone(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="professional">Professional</option>
-                    <option value="casual">Casual</option>
-                    <option value="formal">Formal</option>
-                    <option value="friendly">Friendly</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Style</label>
-                  <select
-                    value={style}
-                    onChange={(e) => setStyle(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="concise">Concise</option>
-                    <option value="detailed">Detailed</option>
-                    <option value="balanced">Balanced</option>
-                  </select>
-                </div>
-
-                <button
-                  onClick={handleSaveProfile}
-                  disabled={loading}
-                  className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+      <main className="mx-auto px-12 md:px-20 py-8">
+        <div className="max-w-5xl mx-auto">
+          {/* Main Tabs */}
+          <Tabs value={activeTab} onValueChange={(tab) => {
+            setActiveTab(tab);
+            localStorage.setItem('awa_tab', tab);
+          }} className="space-y-3">
+            <TabsList className="grid w-auto grid-cols-3 h-8 gap-1 bg-transparent p-0">
+              <TabsTrigger 
+                value="profile" 
+                className="text-xs h-8 px-3 border border-border rounded data-[state=active]:border-primary data-[state=active]:bg-primary/5 bg-background"
+              >
+                Profile
+              </TabsTrigger>
+              <TabsTrigger 
+                value="generate" 
+                className="text-xs h-8 px-3 border border-border rounded data-[state=active]:border-primary data-[state=active]:bg-primary/5 bg-background"
+              >
+                Generate
+              </TabsTrigger>
+              {result && (
+                <TabsTrigger 
+                  value="result" 
+                  className="text-xs h-8 px-3 border border-border rounded data-[state=active]:border-primary data-[state=active]:bg-primary/5 bg-background"
                 >
-                  {loading ? 'Saving...' : 'Save Profile'}
-                </button>
-              </div>
-            </div>
-          </div>
+                  Result
+                </TabsTrigger>
+              )}
+            </TabsList>
 
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Writing Request Form */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Generate Writing</h2>
-              
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Writing Type</label>
-                  <select
-                    value={writingType}
-                    onChange={(e) => setWritingType(e.target.value as any)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="cover_letter">Cover Letter</option>
-                    <option value="motivational_letter">Motivational Letter</option>
-                    <option value="social_response">Social Response</option>
-                    <option value="email">Email</option>
-                  </select>
-                </div>
-
-                {writingType === 'cover_letter' && (
-                  <>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Job Title</label>
-                      <input
-                        type="text"
-                        value={jobTitle}
-                        onChange={(e) => setJobTitle(e.target.value)}
-                        placeholder="e.g., Senior Software Engineer"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
-                      <input
-                        type="text"
-                        value={company}
-                        onChange={(e) => setCompany(e.target.value)}
-                        placeholder="e.g., Google"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                  </>
-                )}
-
-                {writingType === 'motivational_letter' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Program Name</label>
-                    <input
-                      type="text"
-                      value={programName}
-                      onChange={(e) => setProgramName(e.target.value)}
-                      placeholder="e.g., MIT Masters Program"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Max Words</label>
-                    <input
-                      type="number"
-                      value={maxWords}
-                      onChange={(e) => setMaxWords(Number(e.target.value))}
-                      min={100}
-                      max={2000}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Quality Threshold</label>
-                    <input
-                      type="number"
-                      value={qualityThreshold}
-                      onChange={(e) => setQualityThreshold(Number(e.target.value))}
-                      min={0}
-                      max={100}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Additional Information (optional)</label>
-                  <textarea
-                    value={additionalInfo}
-                    onChange={(e) => setAdditionalInfo(e.target.value)}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            {/* Profile Tab */}
+            <TabsContent value="profile" className="space-y-3 focus-visible:outline-none">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                <div className="lg:col-span-2">
+                  <ProfileForm 
+                    userId={userId} 
+                    onUserIdChange={setUserId}
+                    onProfileSaved={setProfile} 
                   />
                 </div>
 
-                <button
-                  onClick={handleGenerate}
-                  disabled={loading || !apiHealthy}
-                  className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                >
-                  {loading ? 'Generating...' : 'Generate Writing'}
-                </button>
-              </div>
-            </div>
+                {/* Sidebar Stats */}
+                <div className="space-y-3">
+                  <Card>
+                    <CardHeader className="pb-1">
+                      <CardTitle className="text-xs font-semibold uppercase">Profile Summary</CardTitle>
+                    </CardHeader>
+                    <CardContent className="py-3">
+                      {profile ? (
+                        <div className="space-y-2 text-xs">
+                          <div>
+                            <p className="text-muted-foreground text-xs">User ID</p>
+                            <p className="font-mono text-xs font-semibold mt-0.5">{userId}</p>
+                          </div>
+                          <div className="border-t border-border pt-2">
+                            <p className="text-muted-foreground text-xs">Name</p>
+                            <p className="font-semibold text-xs mt-0.5">{profile.personal_info.name}</p>
+                          </div>
+                          <div className="border-t border-border pt-2">
+                            <p className="text-muted-foreground text-xs mb-1.5">Preferences</p>
+                            <div className="flex gap-1.5 flex-wrap">
+                              <span className="px-2 py-1 bg-primary/10 text-primary text-xs font-semibold rounded text-center">{profile.writing_preferences.tone}</span>
+                              <span className="px-2 py-1 bg-secondary/10 text-secondary-foreground text-xs font-semibold rounded text-center">{profile.writing_preferences.style}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground text-center py-4">Save your profile to get started</p>
+                      )}
+                    </CardContent>
+                  </Card>
 
-            {/* Results */}
+                  <Card>
+                    <CardHeader className="pb-1">
+                      <CardTitle className="text-xs font-semibold uppercase">Statistics</CardTitle>
+                    </CardHeader>
+                    <CardContent className="py-3">
+                      <div className="space-y-1.5 text-xs">
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">Total Generated</span>
+                          <span className="font-bold text-primary">{generationHistory.length}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">Successful</span>
+                          <span className="font-bold text-green-600">{generationHistory.filter(r => r.status === 'completed').length}</span>
+                        </div>
+                        <div className="border-t border-border pt-1.5 flex justify-between items-center">
+                          <span className="text-muted-foreground">API Status</span>
+                          <span className={`font-bold ${apiHealthy ? 'text-green-600' : 'text-red-600'}`}>
+                            {apiHealthy ? 'Online' : 'Offline'}
+                          </span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Generate Tab */}
+            <TabsContent value="generate" className="space-y-3 focus-visible:outline-none">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                {/* Form - takes 2/3 on desktop, full on mobile */}
+                <div className="lg:col-span-2 space-y-3">
+                  <WritingForm
+                    userId={userId}
+                    onGenerate={handleGenerate}
+                    loading={loading}
+                    disabled={!apiHealthy || !profile}
+                  />
+
+                  {/* Status Monitor - positioned below form */}
+                  {(loading || status) && (
+                    <StatusMonitor status={status} isActive={loading} />
+                  )}
+                </div>
+
+                {/* Sidebar - Current Generation Status */}
+                <div className="space-y-3">
+                  <Card className="h-fit">
+                    <CardHeader className="pb-1">
+                      <CardTitle className="text-xs font-semibold uppercase">Generation Status</CardTitle>
+                    </CardHeader>
+                    <CardContent className="py-3">
+                      {loading ? (
+                        <div className="space-y-1.5 text-xs">
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-2 bg-primary rounded-full animate-pulse"></div>
+                            <span className="text-muted-foreground">In Progress</span>
+                          </div>
+                          <p className="text-xs text-foreground/80 font-semibold">{status?.message}</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5 text-xs">
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-2 bg-muted-foreground rounded-full"></div>
+                            <span className="text-muted-foreground">Ready</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">Click Generate to start</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {result && (
+                    <Card>
+                      <CardHeader className="pb-1">
+                        <CardTitle className="text-xs font-semibold uppercase">Latest Result</CardTitle>
+                      </CardHeader>
+                      <CardContent className="py-3">
+                        <div className="space-y-1.5 text-xs">
+                          <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Status</span>
+                            <span className={`font-bold px-2 py-0.5 rounded text-xs ${
+                              result.status === 'completed'
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-red-100 text-red-700'
+                            }`}>
+                              {result.status}
+                            </span>
+                          </div>
+                          {result.assessment?.quality_metrics && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-muted-foreground">Quality</span>
+                              <span className="font-bold text-primary">{result.assessment.quality_metrics.overall_score.toFixed(1)}</span>
+                            </div>
+                          )}
+                          <div className="text-xs text-muted-foreground">
+                            {new Date(result.created_at).toLocaleTimeString()}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Result Tab */}
             {result && (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-6">
-                <h2 className="text-lg font-semibold text-gray-900">Generated Content</h2>
-                
-                {result.content && (
-                  <div className="bg-gray-50 rounded-md p-4 border border-gray-200">
-                    <pre className="whitespace-pre-wrap text-sm text-gray-700 font-sans">{result.content}</pre>
-                  </div>
-                )}
+              <TabsContent value="result" className="space-y-3 focus-visible:outline-none">
+                <WritingResult result={result} />
 
-                {result.assessment && (
-                  <>
-                    <div>
-                      <h3 className="text-md font-semibold text-gray-900 mb-3">Quality Metrics</h3>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                        <div className="bg-gray-50 rounded-md p-3">
-                          <div className="text-sm text-gray-600">Overall Score</div>
-                          <div className="text-2xl font-bold text-blue-600">{result.assessment.quality_metrics.overall_score.toFixed(1)}</div>
-                        </div>
-                        <div className="bg-gray-50 rounded-md p-3">
-                          <div className="text-sm text-gray-600">Coherence</div>
-                          <div className="text-xl font-semibold text-gray-900">{result.assessment.quality_metrics.coherence.toFixed(1)}</div>
-                        </div>
-                        <div className="bg-gray-50 rounded-md p-3">
-                          <div className="text-sm text-gray-600">Grammar</div>
-                          <div className="text-xl font-semibold text-gray-900">{result.assessment.quality_metrics.grammar_accuracy.toFixed(1)}</div>
-                        </div>
+                {/* Generation History */}
+                {generationHistory.length > 1 && (
+                  <Card>
+                    <CardHeader className="pb-1">
+                      <CardTitle className="text-xs font-semibold uppercase">Recent Generations ({generationHistory.length})</CardTitle>
+                    </CardHeader>
+                    <CardContent className="py-3">
+                      <div className="space-y-1.5">
+                        {generationHistory.slice(1, 6).map((item, idx) => (
+                          <div key={idx} className="flex items-center justify-between p-2 border border-border hover:bg-muted/50 transition-colors rounded text-xs">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-foreground">#{generationHistory.length - idx}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(item.created_at).toLocaleString()}
+                              </p>
+                            </div>
+                            <span className={`text-xs font-semibold px-2 py-1 rounded ml-2 flex-shrink-0 ${
+                              item.status === 'completed'
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-red-100 text-red-700'
+                            }`}>
+                              {item.status === 'completed' ? 'OK' : 'ERR'}
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                    </div>
-
-                    <div>
-                      <h3 className="text-md font-semibold text-gray-900 mb-3">Text Statistics</h3>
-                      <div className="grid grid-cols-4 gap-4">
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-blue-600">{result.assessment.text_stats.word_count}</div>
-                          <div className="text-sm text-gray-600">Words</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-blue-600">{result.assessment.text_stats.character_count}</div>
-                          <div className="text-sm text-gray-600">Characters</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-blue-600">{result.assessment.text_stats.paragraph_count}</div>
-                          <div className="text-sm text-gray-600">Paragraphs</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-blue-600">{result.assessment.text_stats.estimated_pages.toFixed(2)}</div>
-                          <div className="text-sm text-gray-600">Pages</div>
-                        </div>
-                      </div>
-                    </div>
-                  </>
+                    </CardContent>
+                  </Card>
                 )}
-
-                {result.suggestions && result.suggestions.length > 0 && (
-                  <div>
-                    <h3 className="text-md font-semibold text-gray-900 mb-3">Suggestions</h3>
-                    <ul className="list-disc list-inside space-y-1 text-sm text-gray-700">
-                      {result.suggestions.map((suggestion, idx) => (
-                        <li key={idx}>{suggestion}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {result.error && (
-                  <div className="bg-red-50 border border-red-200 rounded-md p-4">
-                    <div className="text-sm text-red-800">{result.error}</div>
-                  </div>
-                )}
-              </div>
+              </TabsContent>
             )}
-          </div>
+          </Tabs>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
