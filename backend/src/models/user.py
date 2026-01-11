@@ -365,7 +365,7 @@ class UserProfile(BaseModel):
             if exp.description:
                 parts.append(exp.description)
             if exp.achievements:
-                parts.append(f"Achievements: {'; '.join(exp.achievements)}")
+                parts.append(f"Achievements: {exp.achievements}")
             
             chunks.append({
                 "text": ". ".join(parts),

@@ -1,6 +1,6 @@
 """Writing agent for content generation."""
 
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 from agents.base_agent import BaseAgent
 from models.writing import WritingRequest
@@ -202,9 +202,9 @@ Do NOT include:
         self,
         request: WritingRequest,
         research_data: Dict[str, Any],
-        user_profile: Dict[str, Any] = None,
+        profile_chunks: List[str] = None,
     ) -> str:
-        """Generate initial writing draft."""
+        """Generate initial writing draft with relevant profile context."""
         # Build context section
         context_dict = request.context.model_dump()
         context_section = \
@@ -248,26 +248,15 @@ Do NOT include:
                 {"".join(research_items)}
                 """
 
-        # Build user profile section
+        # Build profile section from relevant chunks
         profile_section = ""
-        if user_profile:
-            profile_items = []
-            for k, v in user_profile.items():
-                if v and k not in ['created_at', 'updated_at', 'user_id']:
-                    key_display = k.replace('_', ' ').title()
-                    if isinstance(v, list):
-                        profile_items.append(f"**{key_display}:** {', '.join(v)}")
-                    elif isinstance(v, dict):
-                        dict_items = chr(10).join(f"  - {dk.replace('_', ' ').title()}: {dv}" for dk, dv in v.items())
-                        profile_items.append(f"**{key_display}:**\n{dict_items}")
-                    else:
-                        profile_items.append(f"**{key_display}:** {v}")
+        if profile_chunks:
             profile_section = \
                 f"""
 
                 # USER BACKGROUND
-                Consider the following user information for context (personalization will be applied later):
-                {chr(10).join(profile_items)}
+                Integrate relevant details naturally (detailed personalization applied later):
+                {chr(10).join(f"- {chunk}" for chunk in profile_chunks)}
                 """
 
         # Build additional info section

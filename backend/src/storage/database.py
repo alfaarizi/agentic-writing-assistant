@@ -1,6 +1,7 @@
 """Database for structured data using SQLite with normalized schema."""
 
 import json
+import logging
 import aiosqlite
 from datetime import datetime, timezone
 from pathlib import Path
@@ -10,6 +11,7 @@ from api.config import settings
 
 from models.writing import WritingRequest, WritingResponse, WritingAssessment
 from models.user import UserProfile
+from storage.vector_db import VectorDB
 
 
 class Database:
@@ -19,6 +21,7 @@ class Database:
         """Initialize the database."""
         self.db_path = Path(settings.SQLITE_DB_PATH)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self.vector_db = VectorDB()
 
 
     def _get_connection(self):
@@ -105,8 +108,36 @@ class Database:
     # User Profile Operations
     # ============================================
 
+    async def _sync_profile_to_vectordb(self, profile: UserProfile) -> None:
+        """Sync user profile chunks to VectorDB for semantic search.
+        
+        This method is called automatically when a profile is saved or updated.
+        It ensures the VectorDB is kept in sync with the SQLite database.
+        """
+        try:
+            # Delete existing profile chunks for this user
+            self.vector_db.delete(where={"user_id": profile.user_id})
+
+            chunks = profile.to_vectordb_chunks()
+
+            if chunks:
+                # Extract texts, metadatas, and ids from chunks
+                documents = [chunk["text"] for chunk in chunks]
+                metadatas = [chunk["metadata"] for chunk in chunks]
+                ids = [chunk["id"] for chunk in chunks]
+
+                # Add chunks to VectorDB
+                self.vector_db.add_documents(
+                    documents=documents,
+                    metadatas=metadatas,
+                    ids=ids
+                )
+        except Exception as e:
+            logging.warning(f"Failed to sync profile to VectorDB for user {profile.user_id}: {e}")
+
+
     async def save_user_profile(self, profile: UserProfile) -> None:
-        """Save or update a user profile."""
+        """Save or update a user profile and sync with VectorDB."""
         # Convert datetime objects to ISO strings for storage
         created_at_str = profile.created_at.isoformat() if isinstance(profile.created_at, datetime) else profile.created_at
         updated_at_str = profile.updated_at.isoformat() if isinstance(profile.updated_at, datetime) else profile.updated_at
@@ -116,8 +147,8 @@ class Database:
             await conn.execute(
                 """
                 INSERT OR REPLACE INTO user_profiles
-                (user_id, personal_info, education, experience, skills, projects, 
-                 certifications, awards, publications, volunteering, languages, 
+                (user_id, personal_info, education, experience, skills, projects,
+                 certifications, awards, publications, volunteering, languages,
                  socials, recommendations, writing_preferences, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
@@ -141,6 +172,9 @@ class Database:
                 ),
             )
             await conn.commit()
+
+        # Sync profile chunks to VectorDB
+        await self._sync_profile_to_vectordb(profile)
 
 
     async def get_user_profile(self, user_id: str) -> Optional[UserProfile]:
@@ -173,11 +207,17 @@ class Database:
 
 
     async def delete_user_profile(self, user_id: str) -> None:
-        """Delete a user profile by ID."""
+        """Delete a user profile by ID and clean up VectorDB."""
         async with self._get_connection() as conn:
             await conn.execute("PRAGMA foreign_keys = ON")
             await conn.execute("DELETE FROM user_profiles WHERE user_id = ?", (user_id,))
             await conn.commit()
+
+        # Clean up profile chunks from VectorDB
+        try:
+            self.vector_db.delete(where={"user_id": user_id})
+        except Exception as e:
+            logging.warning(f"Failed to delete profile chunks from VectorDB for user {user_id}: {e}")
 
 
     # ============================================

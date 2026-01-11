@@ -242,17 +242,26 @@ You ensure high-quality, personalized writing delivered efficiently and reliably
             self._emit('researching', 20, 'Research complete', data=research_data)
 
 
-            # Step 2: Writing
+            # Step 2: Retrieve relevant profile chunks
+            self._emit('writing', 25, 'Gathering relevant background...')
+            profile_chunks = self.personalization_agent._retrieve_relevant_chunks(
+                request.user_id,
+                f"{request.type} for {request.context.model_dump()}",
+                request.context.model_dump()
+            )
+
+
+            # Step 3: Writing
             self._emit('writing', 30, 'Composing your content...')
             draft = await self.writing_agent.write(
                 request,
                 research_data,
-                user_profile=None,
+                profile_chunks=profile_chunks,
             )
             self._emit('writing', 40, 'Draft created', data=draft)
 
 
-            # Step 3: Personalization
+            # Step 4: Personalization
             self._emit('personalizing', 50, 'Adding personal touches...')
             personalized_content = await self.personalization_agent.personalize(
                 draft,

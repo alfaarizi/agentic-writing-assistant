@@ -1,6 +1,6 @@
 """Personalization agent for user profile integration."""
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 from agents.base_agent import BaseAgent
 from storage.database import Database
@@ -17,7 +17,7 @@ class PersonalizationAgent(BaseAgent):
         database: Optional[Database] = None,
     ):
         """Initialize personalization agent.
-        
+
         Args:
             model: LLM model name
             temperature: LLM temperature for generation
@@ -27,16 +27,75 @@ class PersonalizationAgent(BaseAgent):
         self.database = database
 
 
-    def get_system_prompt(self) -> str:
-        """Get system prompt for personalization agent.
-        
-        Incorporates:
-        - Role-Based: Voice coach and personalization expert persona
-        - Contextual: Authenticity and consistency requirements
-        - Instructional: Specific personalization directives
-        - Few-Shot: Before/after examples
-        - Meta: Guidelines for natural integration
+    def _retrieve_relevant_chunks(
+        self,
+        user_id: str,
+        content: str,
+        writing_context: Dict[str, Any]
+    ) -> List[str]:
+        """Retrieve relevant profile chunks via semantic search.
+
+        Builds contextual queries from content and writing context to find
+        the most relevant user profile information for personalization.
+
+        Args:
+            user_id: User ID to filter chunks
+            content: Draft content or query text (used for semantic matching)
+            writing_context: Context from WritingRequest (job_title, company, etc.)
+
+        Returns:
+            List of relevant profile chunk texts, deduplicated and limited to 15
         """
+        if not self.database or not self.database.vector_db:
+            return []
+
+        try:
+            queries = []
+            
+            if content and len(content) > 50:
+                queries.append(content[:500])
+            
+            if job_title := writing_context.get("job_title"):
+                queries.append(f"experience and skills for {job_title}")
+            if company := writing_context.get("company"):
+                queries.append(f"work experience at {company}")
+            if program_name := writing_context.get("program_name"):
+                queries.append(f"background and education for {program_name}")
+            if scholarship_name := writing_context.get("scholarship_name"):
+                queries.append(f"achievements and qualifications for {scholarship_name}")
+            if post_content := writing_context.get("post_content"):
+                post_preview = post_content[:200] if len(post_content) > 200 else post_content
+                queries.append(f"relevant experience and background for: {post_preview}")
+            if subject := writing_context.get("subject"):
+                queries.append(f"relevant experience and expertise for: {subject}")
+            elif reply_to := writing_context.get("reply_to"):
+                if not writing_context.get("post_content"):
+                    queries.append("professional background and communication style")
+
+            if not queries:
+                queries.append("professional background experience skills achievements")
+
+            results = self.database.vector_db.query(
+                query_texts=queries[:3],
+                n_results=10,
+                where={"user_id": user_id}
+            )
+
+            chunks = []
+            seen = set()
+            for docs in results.get("documents", []):
+                for doc in docs:
+                    if doc and doc not in seen:
+                        seen.add(doc)
+                        chunks.append(doc)
+
+            return chunks[:15]
+        except Exception:
+            return []
+
+
+    def get_system_prompt(self) -> str:
+        """Get system prompt for personalization agent."""
         return \
 """
 You are a Voice Personalization Expert specializing in adapting written content to match individual communication styles.
@@ -212,23 +271,19 @@ You're the bridge between generic draft and authentic voice. EditingAgent will p
     def get_user_prompt(
         self,
         content: str,
+        context_section: str,
+        relevant_profile_section: str,
         writing_style_section: str,
-        background_section: str,
-        achievements_section: str,
-        experience_section: str,
         writing_samples_section: str,
-        additional_context_section: str,
     ) -> str:
         """Build user prompt for personalization task.
 
         Args:
             content: Draft content to personalize
+            context_section: Pre-formatted writing context section
+            relevant_profile_section: Pre-formatted relevant profile chunks from semantic search
             writing_style_section: Pre-formatted style section
-            background_section: Pre-formatted background section
-            achievements_section: Pre-formatted achievements section
-            experience_section: Pre-formatted experience section
             writing_samples_section: Pre-formatted samples section
-            additional_context_section: Pre-formatted context section
 
         Returns:
             Formatted user prompt string
@@ -243,7 +298,13 @@ Transform the following draft content to authentically reflect the user's unique
 {content}
 ```
 
-# USER PROFILE{writing_style_section}{background_section}{achievements_section}{experience_section}{writing_samples_section}{additional_context_section}
+# WRITING CONTEXT{context_section}
+
+# USER PROFILE{relevant_profile_section}
+
+# WRITING STYLE PREFERENCES{writing_style_section}
+
+# WRITING SAMPLES{writing_samples_section}
 
 # PERSONALIZATION INSTRUCTIONS
 
@@ -276,98 +337,88 @@ Requirements:
         self,
         content: str,
         user_id: str,
-        context: Dict[str, Any] = None,
+        writing_context: Dict[str, Any] = None,
     ) -> str:
-        """Personalize content based on user profile."""
+        """Personalize content using semantic search for relevant profile data.
+        
+        Args:
+            content: Draft content to personalize
+            user_id: User ID to retrieve profile for
+            writing_context: Optional context (job_title, company, program_name, etc.)
+            
+        Returns:
+            Personalized content (original content if personalization fails)
+        """
+        if not self.database:
+            return content
+            
         if not (profile := await self.database.get_user_profile(user_id)):
             return content
 
+        relevant_chunks = self._retrieve_relevant_chunks(
+            user_id,
+            content,
+            writing_context or {}
+        )
+
         profile_dict = profile.model_dump()
 
-        # Build writing style section
+        # build context section
+        context_section = ""
+        if writing_context:
+            context_section = \
+                f"""
+                {chr(10).join(f"**{k.replace('_', ' ').title()}:** {v}" for k, v in writing_context.items() if v)}
+                """
+
+        # build relevant profile section
+        relevant_profile_section = ""
+        if relevant_chunks:
+            relevant_profile_section = \
+                f"""
+                ## Relevant Background & Experience
+                {chr(10).join(f"- {chunk}" for chunk in relevant_chunks)}
+                """
+
+        # build writing style section
         writing_style_section = ""
-        if writing_style := profile_dict.get('writing_style'):
-            writing_style_section = \
-                f"""
-
-                ## Writing Style Preferences
-                **Tone:** {writing_style.get('tone', 'Not specified')}
-                **Formality:** {writing_style.get('formality', 'Not specified')}
-                **Typical Sentence Style:** {writing_style.get('sentence_style', 'Not specified')}
-                """
-
-        # Build background section
-        background_section = ""
-        if profile_dict.get('background'):
-            background_section = \
-                f"""
-
-                ## Background
-                {profile_dict['background']}
-                """
-
-        # Build achievements section
-        achievements_section = ""
-        if (achievements := profile_dict.get('achievements')) and isinstance(achievements, list) and achievements:
-            achievements_section = \
-                f"""
-
-                ## Key Achievements
-                {chr(10).join(f"- {a}" for a in achievements)}
-                """
-
-        # Build experience section
-        experience_section = ""
-        if (experience := profile_dict.get('experience')) and isinstance(experience, list) and experience:
-            experience_section = \
-                f"""
-
-                ## Professional Experience
-                {chr(10).join(f"- **{exp.get('title', 'Role')}** at {exp.get('company', 'Company')}" if isinstance(exp, dict) else f"- {exp}" for exp in experience)}
-                """
-
-        # Build writing samples section
-        writing_samples_section = ""
-        if (samples := profile_dict.get('writing_samples')) and isinstance(samples, list) and samples:
-            sample_items = []
-            for i, s in enumerate(samples[:2], 1):
-                sample_items.append(
+        if prefs := profile_dict.get('writing_preferences'):
+            tone = prefs.get('tone')
+            style = prefs.get('style')
+            if tone or style:
+                writing_style_section = \
                     f"""
-
-                    **Sample {i}:**
-                    ```
-                    {s if isinstance(s, str) else s.get('text', '')}
-                    ```
+                    **Tone:** {tone or 'Not specified'}
+                    **Style:** {style or 'Not specified'}
                     """
-                )
-            writing_samples_section = \
-                f"""
 
-                ## Writing Sample(s)
-                Use these samples to understand the user's natural voice and style:
-                {"".join(sample_items)}
-                """
-
-        # Build additional context section
-        additional_context_section = ""
-        if context:
-            additional_context_section = \
-                f"""
-
-                # ADDITIONAL CONTEXT
-                {chr(10).join(f"**{k.replace('_', ' ').title()}:** {v}" for k, v in context.items() if v)}
-                """
+        # build writing samples section
+        writing_samples_section = ""
+        if samples := profile_dict.get('writing_preferences', {}).get('writing_samples'):
+            if samples:
+                sample_texts = []
+                for i, sample in enumerate(samples[:2], 1):
+                    sample_texts.append(\
+                        f"""
+                        **Sample {i}:**
+                        ```
+                        {sample}
+                        ```
+                        """
+                    )
+                writing_samples_section = \
+                        f"""
+                        {chr(10).join(sample_texts)}
+                        """
 
         response = await self._generate(
             self.get_system_prompt(),
             self.get_user_prompt(
                 content,
+                context_section,
+                relevant_profile_section,
                 writing_style_section,
-                background_section,
-                achievements_section,
-                experience_section,
                 writing_samples_section,
-                additional_context_section,
             ),
             temperature=self.temperature,
         )
