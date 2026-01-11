@@ -1,4 +1,4 @@
-"""User profile models with LinkedIn API support."""
+"""User profile models for writing assistant personalization."""
 
 from datetime import datetime
 from enum import StrEnum
@@ -260,11 +260,10 @@ class Recommendation(BaseModel):
 
 
 class UserProfile(BaseModel):
-    """Complete user profile with LinkedIn-compatible structure."""
+    """Complete user profile for writing assistant personalization."""
 
     # Identity
     user_id: str
-    linkedin_id: Optional[str] = None
     
     # Personal Information
     personal_info: PersonalInfo
@@ -294,7 +293,6 @@ class UserProfile(BaseModel):
     # Metadata
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
-    last_linkedin_sync: Optional[datetime] = None
 
     @model_validator(mode="before")
     @classmethod
