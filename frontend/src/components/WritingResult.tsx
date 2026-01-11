@@ -51,7 +51,7 @@ export function WritingResult({ result }: WritingResultProps) {
 
       {/* Generated Content */}
       {result.content && (
-        <Card>
+        <Card className="border-2 border-black dark:border-white">
           <CardHeader className="pb-1 flex flex-row items-center justify-between gap-2">
             <CardTitle className="text-xs font-semibold uppercase">Generated Content</CardTitle>
           <div className="flex gap-1.5">
@@ -76,7 +76,7 @@ export function WritingResult({ result }: WritingResultProps) {
           </div>
         </CardHeader>
         <CardContent className="py-3">
-            <ScrollArea className="h-48 border border-border bg-background/50 rounded">
+            <ScrollArea className="h-96 border-2 border-black dark:border-white bg-background/50 rounded">
               <div className="p-3 whitespace-pre-wrap text-xs leading-relaxed text-foreground/90">
                 {result.content}
               </div>
@@ -87,7 +87,7 @@ export function WritingResult({ result }: WritingResultProps) {
 
       {/* Text Statistics */}
       {hasStats && (
-        <Card>
+        <Card className="border-2 border-black dark:border-white">
           <CardHeader className="pb-1">
             <CardTitle className="text-xs font-semibold uppercase">Text Statistics</CardTitle>
           </CardHeader>
@@ -116,7 +116,7 @@ export function WritingResult({ result }: WritingResultProps) {
 
       {/* Quality Metrics */}
       {hasMetrics && (
-        <Card>
+        <Card className="border-2 border-black dark:border-white">
           <CardHeader className="pb-1">
             <CardTitle className="text-xs font-semibold uppercase">Quality Metrics</CardTitle>
           </CardHeader>
@@ -155,7 +155,7 @@ export function WritingResult({ result }: WritingResultProps) {
 
       {/* Requirements Check */}
       {result.assessment?.requirements_checks && (
-        <Card>
+        <Card className="border-2 border-black dark:border-white">
           <CardHeader className="pb-1">
             <CardTitle className="text-xs font-semibold uppercase">Requirements Check</CardTitle>
           </CardHeader>
@@ -185,7 +185,7 @@ export function WritingResult({ result }: WritingResultProps) {
 
       {/* Suggestions */}
       {result.suggestions && result.suggestions.length > 0 && (
-        <Card>
+        <Card className="border-2 border-black dark:border-white">
           <CardHeader className="pb-1">
             <CardTitle className="text-xs font-semibold uppercase">Suggestions ({result.suggestions.length})</CardTitle>
           </CardHeader>

@@ -75,7 +75,7 @@ export function WritingForm({ userId, onGenerate, loading, disabled }: WritingFo
   };
 
   return (
-    <Card>
+    <Card className="border-2 border-black dark:border-white">
       <CardHeader className="pb-1">
         <CardTitle className="text-xs font-semibold uppercase">Generate Writing</CardTitle>
       </CardHeader>
@@ -123,7 +123,7 @@ export function WritingForm({ userId, onGenerate, loading, disabled }: WritingFo
                   placeholder="Senior Product Manager" 
                   value={jobTitle} 
                   onChange={(e) => setJobTitle(e.target.value)} 
-                  className="text-xs h-8 bg-background border-input"
+                  className="text-xs h-8 bg-background border-2 border-black dark:border-white"
                 />
               </div>
               <div className="space-y-1.5">
@@ -132,7 +132,7 @@ export function WritingForm({ userId, onGenerate, loading, disabled }: WritingFo
                   placeholder="Tech Company Inc." 
                   value={company} 
                   onChange={(e) => setCompany(e.target.value)} 
-                  className="text-xs h-8 bg-background border-input"
+                  className="text-xs h-8 bg-background border-2 border-black dark:border-white"
                 />
               </div>
               <div className="space-y-1.5">
@@ -142,7 +142,7 @@ export function WritingForm({ userId, onGenerate, loading, disabled }: WritingFo
                   value={additionalInfo} 
                   onChange={(e) => setAdditionalInfo(e.target.value)} 
                   rows={3}
-                  className="text-xs resize-none bg-background border-input"
+                  className="text-xs resize-none bg-background border-2 border-black dark:border-white"
                 />
               </div>
             </TabsContent>
@@ -155,7 +155,7 @@ export function WritingForm({ userId, onGenerate, loading, disabled }: WritingFo
                   placeholder="University/Program Name" 
                   value={programName} 
                   onChange={(e) => setProgramName(e.target.value)} 
-                  className="text-xs h-8 bg-background border-input"
+                  className="text-xs h-8 bg-background border-2 border-black dark:border-white"
                 />
               </div>
               <div className="space-y-1.5">
@@ -165,7 +165,7 @@ export function WritingForm({ userId, onGenerate, loading, disabled }: WritingFo
                   value={additionalInfo} 
                   onChange={(e) => setAdditionalInfo(e.target.value)} 
                   rows={3}
-                  className="text-xs resize-none bg-background border-input"
+                  className="text-xs resize-none bg-background border-2 border-black dark:border-white"
                 />
               </div>
             </TabsContent>
@@ -179,7 +179,7 @@ export function WritingForm({ userId, onGenerate, loading, disabled }: WritingFo
                   value={additionalInfo} 
                   onChange={(e) => setAdditionalInfo(e.target.value)} 
                   rows={4}
-                  className="text-xs resize-none bg-background border-input"
+                  className="text-xs resize-none bg-background border-2 border-black dark:border-white"
                 />
               </div>
             </TabsContent>
@@ -193,7 +193,7 @@ export function WritingForm({ userId, onGenerate, loading, disabled }: WritingFo
                   placeholder="recipient@example.com" 
                   value={emailRecipient} 
                   onChange={(e) => setEmailRecipient(e.target.value)} 
-                  className="text-xs h-8 bg-background border-input"
+                  className="text-xs h-8 bg-background border-2 border-black dark:border-white"
                 />
               </div>
               <div className="space-y-1.5">
@@ -202,7 +202,7 @@ export function WritingForm({ userId, onGenerate, loading, disabled }: WritingFo
                   placeholder="Email subject (optional)" 
                   value={emailSubject} 
                   onChange={(e) => setEmailSubject(e.target.value)} 
-                  className="text-xs h-8 bg-background border-input"
+                  className="text-xs h-8 bg-background border-2 border-black dark:border-white"
                 />
               </div>
             </TabsContent>
@@ -220,7 +220,7 @@ export function WritingForm({ userId, onGenerate, loading, disabled }: WritingFo
                 onChange={(e) => setMaxWords(Number(e.target.value))} 
                 min={100} 
                 max={2000}
-                className="text-xs h-8 bg-background border-input"
+                className="text-xs h-8 bg-background border-2 border-black dark:border-white"
                 placeholder="500"
               />
             </div>
@@ -232,7 +232,7 @@ export function WritingForm({ userId, onGenerate, loading, disabled }: WritingFo
                 onChange={(e) => setQualityThreshold(Number(e.target.value))} 
                 min={0} 
                 max={100}
-                className="text-xs h-8 bg-background border-input"
+                className="text-xs h-8 bg-background border-2 border-black dark:border-white"
                 placeholder="85"
               />
             </div>

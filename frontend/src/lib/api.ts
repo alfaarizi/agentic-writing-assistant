@@ -1,20 +1,141 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
 
+export interface PersonalInfo {
+  first_name: string;
+  last_name: string;
+  preferred_name?: string;
+  pronouns?: string;
+  date_of_birth?: string;
+  email?: string;
+  phone?: string;
+  city?: string;
+  country?: string;
+  citizenship?: string;
+  headline?: string;
+  summary?: string;
+  background?: string;
+  interests?: string[];
+}
+
+export interface Education {
+  school: string;
+  degree: string;
+  field_of_study?: string;
+  start_date?: string;
+  end_date?: string;
+  grade?: string;
+  activities?: string;
+  description?: string;
+  skills?: string[];
+}
+
+export interface Experience {
+  company: string;
+  position: string;
+  employment_type?: string;
+  location?: string;
+  location_type?: string;
+  start_date?: string;
+  end_date?: string;
+  description?: string;
+  achievements?: string[];
+  skills?: string[];
+}
+
+export interface Skill {
+  name: string;
+  proficiency?: string;
+  years_experience?: number;
+}
+
+export interface Project {
+  name: string;
+  description: string;
+  start_date?: string;
+  end_date?: string;
+  url?: string;
+  skills?: string[];
+  contributors?: string[];
+  associated_with?: string;
+}
+
+export interface Certification {
+  name: string;
+  issuer: string;
+  issue_date?: string;
+  expiration_date?: string;
+  credential_id?: string;
+  credential_url?: string;
+  skills?: string[];
+}
+
+export interface Award {
+  title: string;
+  issuer: string;
+  issue_date?: string;
+  description?: string;
+  associated_with?: string;
+}
+
+export interface Publication {
+  title: string;
+  publisher?: string;
+  publication_date?: string;
+  url?: string;
+  description?: string;
+  authors?: string[];
+}
+
+export interface Volunteering {
+  organization: string;
+  role: string;
+  cause?: string;
+  start_date?: string;
+  end_date?: string;
+  description?: string;
+}
+
+export interface Language {
+  name: string;
+  proficiency?: string;
+}
+
+export interface Social {
+  platform: string;
+  url: string;
+  username?: string;
+}
+
+export interface Recommendation {
+  name: string;
+  position?: string;
+  relationship?: string;
+  message: string;
+  date?: string;
+}
+
+export interface WritingPreferences {
+  tone?: string;
+  style?: string;
+  common_phrases?: string[];
+  writing_samples?: string[];
+}
+
 export interface UserProfile {
   user_id: string;
-  personal_info: {
-    name: string;
-    background?: string;
-    education: any[];
-    experience: any[];
-    achievements: string[];
-    skills: string[];
-  };
-  writing_preferences: {
-    tone: string;
-    style: string;
-    common_phrases: string[];
-  };
+  personal_info: PersonalInfo;
+  writing_preferences?: WritingPreferences;
+  education?: Education[];
+  experience?: Experience[];
+  projects?: Project[];
+  certifications?: Certification[];
+  awards?: Award[];
+  publications?: Publication[];
+  volunteering?: Volunteering[];
+  skills?: Skill[];
+  languages?: Language[];
+  socials?: Social[];
+  recommendations?: Recommendation[];
   created_at: string;
   updated_at: string;
 }
@@ -101,6 +222,23 @@ export async function getProfile(userId: string): Promise<UserProfile | null> {
   } catch {
     return null;
   }
+}
+
+export async function uploadResume(userId: string, file: File): Promise<UserProfile> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await fetch(`${API_BASE_URL}/profile/${userId}/resume`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Failed to upload resume' }));
+    throw new Error(error.detail || 'Failed to upload resume');
+  }
+
+  return response.json();
 }
 
 export type StatusListener = (update: { stage: string; progress: number; message: string; timestamp: string } | { type: 'complete'; data: WritingResponse }) => void;

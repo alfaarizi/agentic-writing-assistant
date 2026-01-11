@@ -172,7 +172,7 @@ function App() {
 
             <TabsContent value="profile" className="space-y-3 focus-visible:outline-none">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-                <div className="lg:col-span-2">
+                <div className="lg:col-span-2 space-y-3">
                   <ProfileForm 
                     userId={userId} 
                     onUserIdChange={(newUserId) => {
@@ -186,26 +186,87 @@ function App() {
                   />
                 </div>
                 <div className="space-y-3">
-                  <Card>
-                    <CardHeader className="pb-1">
-                      <CardTitle className="text-xs font-semibold uppercase">Profile Summary</CardTitle>
+                  <Card className="border-2 border-black dark:border-white">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-semibold">Profile Summary</CardTitle>
                     </CardHeader>
                     <CardContent className="py-3">
                       {profile ? (
-                        <div className="space-y-2 text-xs">
+                        <div className="space-y-3 text-xs">
                           <div>
-                            <p className="text-muted-foreground text-xs">User ID</p>
+                            <p className="text-muted-foreground text-xs font-medium">User ID</p>
                             <p className="font-mono text-xs font-semibold mt-0.5">{userId}</p>
                           </div>
                           <div className="border-t border-border pt-2">
-                            <p className="text-muted-foreground text-xs">Name</p>
-                            <p className="font-semibold text-xs mt-0.5">{profile.personal_info.name}</p>
+                            <p className="text-muted-foreground text-xs font-medium">Name</p>
+                            <p className="font-semibold text-xs mt-0.5">
+                              {(() => {
+                                const firstName = profile.personal_info.first_name && profile.personal_info.first_name !== 'Unknown' ? profile.personal_info.first_name : '';
+                                const lastName = profile.personal_info.last_name && profile.personal_info.last_name !== 'Unknown' ? profile.personal_info.last_name : '';
+                                return [firstName, lastName].filter(Boolean).join(' ') || 'N/A';
+                              })()}
+                            </p>
                           </div>
-                          <div className="border-t border-border pt-2">
-                            <p className="text-muted-foreground text-xs mb-1.5">Preferences</p>
-                            <div className="flex gap-1.5 flex-wrap">
-                              <span className="px-2 py-1 bg-primary/10 text-primary text-xs font-semibold rounded text-center">{profile.writing_preferences.tone}</span>
-                              <span className="px-2 py-1 bg-secondary/10 text-secondary-foreground text-xs font-semibold rounded text-center">{profile.writing_preferences.style}</span>
+                          {profile.personal_info.email && (
+                            <div className="border-t border-border pt-2">
+                              <p className="text-muted-foreground text-xs font-medium">Email</p>
+                              <p className="font-semibold text-xs mt-0.5">{profile.personal_info.email}</p>
+                            </div>
+                          )}
+                          {profile.personal_info.headline && (
+                            <div className="border-t border-border pt-2">
+                              <p className="text-muted-foreground text-xs font-medium">Headline</p>
+                              <p className="font-semibold text-xs mt-0.5">{profile.personal_info.headline}</p>
+                            </div>
+                          )}
+                          {profile.writing_preferences && (
+                            <div className="border-t border-border pt-2">
+                              <p className="text-muted-foreground text-xs font-medium mb-1.5">Writing Preferences</p>
+                              <div className="flex gap-1.5 flex-wrap">
+                                <span className="px-2 py-1 bg-muted text-foreground text-xs font-semibold rounded border border-border">{profile.writing_preferences.tone}</span>
+                                <span className="px-2 py-1 bg-muted text-foreground text-xs font-semibold rounded border border-border">{profile.writing_preferences.style}</span>
+                              </div>
+                            </div>
+                          )}
+                          <div className="border-t border-border pt-2 space-y-1.5">
+                            <p className="text-muted-foreground text-xs font-medium mb-1.5">Profile Sections</p>
+                            <div className="grid grid-cols-2 gap-2">
+                              {profile.education && profile.education.length > 0 && (
+                                <div className="bg-muted/50 p-2 rounded border border-border">
+                                  <p className="text-muted-foreground text-xs">Education</p>
+                                  <p className="font-bold text-sm mt-0.5">{profile.education.length}</p>
+                                </div>
+                              )}
+                              {profile.experience && profile.experience.length > 0 && (
+                                <div className="bg-muted/50 p-2 rounded border border-border">
+                                  <p className="text-muted-foreground text-xs">Experience</p>
+                                  <p className="font-bold text-sm mt-0.5">{profile.experience.length}</p>
+                                </div>
+                              )}
+                              {profile.skills && profile.skills.length > 0 && (
+                                <div className="bg-muted/50 p-2 rounded border border-border">
+                                  <p className="text-muted-foreground text-xs">Skills</p>
+                                  <p className="font-bold text-sm mt-0.5">{profile.skills.length}</p>
+                                </div>
+                              )}
+                              {profile.projects && profile.projects.length > 0 && (
+                                <div className="bg-muted/50 p-2 rounded border border-border">
+                                  <p className="text-muted-foreground text-xs">Projects</p>
+                                  <p className="font-bold text-sm mt-0.5">{profile.projects.length}</p>
+                                </div>
+                              )}
+                              {profile.certifications && profile.certifications.length > 0 && (
+                                <div className="bg-muted/50 p-2 rounded border border-border">
+                                  <p className="text-muted-foreground text-xs">Certifications</p>
+                                  <p className="font-bold text-sm mt-0.5">{profile.certifications.length}</p>
+                                </div>
+                              )}
+                              {profile.languages && profile.languages.length > 0 && (
+                                <div className="bg-muted/50 p-2 rounded border border-border">
+                                  <p className="text-muted-foreground text-xs">Languages</p>
+                                  <p className="font-bold text-sm mt-0.5">{profile.languages.length}</p>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -215,7 +276,7 @@ function App() {
                     </CardContent>
                   </Card>
 
-                  <Card>
+                  <Card className="border-2 border-black dark:border-white">
                     <CardHeader className="pb-1">
                       <CardTitle className="text-xs font-semibold uppercase">Statistics</CardTitle>
                     </CardHeader>
@@ -256,7 +317,7 @@ function App() {
                   )}
                 </div>
                 <div className="space-y-3">
-                  <Card className="h-fit">
+                  <Card className="h-fit border-2 border-black dark:border-white">
                     <CardHeader className="pb-1">
                       <CardTitle className="text-xs font-semibold uppercase">Generation Status</CardTitle>
                     </CardHeader>
@@ -282,7 +343,7 @@ function App() {
                   </Card>
 
                   {result && (
-                    <Card>
+                    <Card className="border-2 border-black dark:border-white">
                       <CardHeader className="pb-1">
                         <CardTitle className="text-xs font-semibold uppercase">Latest Result</CardTitle>
                       </CardHeader>
@@ -319,7 +380,7 @@ function App() {
               <TabsContent value="result" className="space-y-3 focus-visible:outline-none">
                 <WritingResult result={result} />
                 {generationHistory.length > 1 && (
-                  <Card>
+                  <Card className="border-2 border-black dark:border-white">
                     <CardHeader className="pb-1">
                       <CardTitle className="text-xs font-semibold uppercase">Recent Generations ({generationHistory.length})</CardTitle>
                     </CardHeader>
