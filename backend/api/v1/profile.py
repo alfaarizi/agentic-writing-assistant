@@ -2,10 +2,12 @@
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
-from api.dependencies import get_database
+from api.config import settings
+from api.dependencies import get_database, get_resume_service
 from models.user import UserProfile
+from services.resume_service import ResumeService
 from storage.database import Database
 
 router = APIRouter()
@@ -91,3 +93,42 @@ async def delete_profile(
         )
 
     await database.delete_user_profile(user_id)
+
+
+@router.post("/profile/{user_id}/resume", response_model=UserProfile, status_code=status.HTTP_201_CREATED)
+async def upload_resume(
+    user_id: str,
+    file: UploadFile = File(...),
+    database: Database = Depends(get_database),
+    resume_service: ResumeService = Depends(get_resume_service),
+) -> UserProfile:
+    """
+    Upload and parse a resume to create or update a user profile.
+    
+    **Limits:**
+    - Max {settings.MAX_RESUME_FILE_SIZE_MB}MB per file
+    - Supported formats: PDF, DOCX
+    """
+    # Parse resume
+    try:
+        profile = await resume_service.parse_resume(user_id, file)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to process resume: {str(e)}",
+        )
+    
+    # Save profile
+    existing = await database.get_user_profile(user_id)
+    
+    if existing:
+        profile.created_at = existing.created_at
+    else:
+        profile.created_at = datetime.now(timezone.utc).isoformat()
+    
+    profile.updated_at = datetime.now(timezone.utc).isoformat()
+    await database.save_user_profile(profile)
+    
+    return profile

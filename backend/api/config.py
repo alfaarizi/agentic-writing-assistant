@@ -31,7 +31,6 @@ class Settings(BaseSettings):
 
     # Social Media APIs
     TWITTER_API_KEY: Optional[str] = None
-    LINKEDIN_API_KEY: Optional[str] = None
     GMAIL_API_CREDENTIALS: Optional[str] = None
 
     # Database
@@ -47,6 +46,9 @@ class Settings(BaseSettings):
     QUALITY_THRESHOLD: float = 85.0
     MAX_REFINEMENT_ITERATIONS: int = 5
     ENABLE_QUALITY_METRICS: bool = True
+    
+    # Resume Upload Configuration
+    MAX_RESUME_FILE_SIZE_MB: int = 10
 
     def __init__(self, **kwargs):
         """Initialize settings and create data directories."""
