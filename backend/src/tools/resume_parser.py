@@ -129,10 +129,7 @@ Extracted:
   "start_date": "2020-06",
   "end_date": null,
   "description": "Led team of 5, built ML pipeline processing 10M events/day",
-  "achievements": [
-    "Led team of 5 engineers",
-    "Built ML pipeline processing 10M events/day"
-  ],
+  "achievements": "Led team of 5 engineers\\nBuilt ML pipeline processing 10M events/day\\nIncreased system efficiency by 40%",
   "skills": ["Python", "Machine Learning", "Distributed Systems"]
 }
 
@@ -239,7 +236,7 @@ Return ONLY valid JSON (no markdown, no explanation) with this exact structure:
       "start_date": "YYYY-MM or YYYY or null",
       "end_date": "YYYY-MM or YYYY or null",
       "description": "string or null",
-      "achievements": ["string"],
+      "achievements": "string or null (multi-line text with \\n for line breaks)",
       "skills": ["string"]
     }
   ],
@@ -359,7 +356,7 @@ Return ONLY valid JSON (no markdown, no explanation) with this exact structure:
 - `location_type`: Use exact enum values (on_site, remote, hybrid)
 - `start_date`, `end_date`: Employment dates (end_date null if current)
 - `description`: Job description, responsibilities overview
-- `achievements`: Array of accomplishments, metrics, results
+- `achievements`: Multi-line string of accomplishments, metrics, results (use \\n for line breaks)
 - `skills`: Array of skills used in this role
 
 **skills:**

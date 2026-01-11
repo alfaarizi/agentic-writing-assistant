@@ -188,13 +188,9 @@ export function ProfileView({ profile }: ProfileViewProps) {
                     {exp.start_date || '?'} - {exp.end_date || 'Present'}
                   </p>
                 )}
-                {exp.description && <p className="text-foreground/80 mt-1">{exp.description}</p>}
-                {exp.achievements && exp.achievements.length > 0 && (
-                  <ul className="list-disc list-inside text-foreground/80 mt-1 space-y-0.5">
-                    {exp.achievements.map((achievement, aIdx) => (
-                      <li key={aIdx}>{achievement}</li>
-                    ))}
-                  </ul>
+                {exp.description && <p className="text-foreground/80 mt-1 whitespace-pre-line">{exp.description}</p>}
+                {exp.achievements && (
+                  <p className="text-foreground/80 mt-1 whitespace-pre-line">{exp.achievements}</p>
                 )}
                 {exp.skills && exp.skills.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-1.5">

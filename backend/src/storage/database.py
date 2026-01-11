@@ -38,6 +38,17 @@ class Database:
                 CREATE TABLE IF NOT EXISTS user_profiles (
                     user_id TEXT PRIMARY KEY,
                     personal_info TEXT NOT NULL,
+                    education TEXT,
+                    experience TEXT,
+                    skills TEXT,
+                    projects TEXT,
+                    certifications TEXT,
+                    awards TEXT,
+                    publications TEXT,
+                    volunteering TEXT,
+                    languages TEXT,
+                    socials TEXT,
+                    recommendations TEXT,
                     writing_preferences TEXT NOT NULL,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
@@ -96,23 +107,37 @@ class Database:
 
     async def save_user_profile(self, profile: UserProfile) -> None:
         """Save or update a user profile."""
-        now = datetime.now(timezone.utc).isoformat()
+        # Convert datetime objects to ISO strings for storage
+        created_at_str = profile.created_at.isoformat() if isinstance(profile.created_at, datetime) else profile.created_at
+        updated_at_str = profile.updated_at.isoformat() if isinstance(profile.updated_at, datetime) else profile.updated_at
 
         async with self._get_connection() as conn:
             await conn.execute("PRAGMA foreign_keys = ON")
             await conn.execute(
                 """
                 INSERT OR REPLACE INTO user_profiles
-                (user_id, personal_info, writing_preferences, created_at, updated_at)
-                VALUES (?, ?, ?, COALESCE((SELECT created_at FROM user_profiles WHERE user_id = ?), ?), ?)
+                (user_id, personal_info, education, experience, skills, projects, 
+                 certifications, awards, publications, volunteering, languages, 
+                 socials, recommendations, writing_preferences, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     profile.user_id,
-                    json.dumps(profile.personal_info.model_dump()),
-                    json.dumps(profile.writing_preferences.model_dump()),
-                    profile.user_id,
-                    now,
-                    now,
+                    json.dumps(profile.personal_info.model_dump(mode='json')),
+                    json.dumps([e.model_dump(mode='json') for e in (profile.education or [])]),
+                    json.dumps([e.model_dump(mode='json') for e in (profile.experience or [])]),
+                    json.dumps([s.model_dump(mode='json') for s in (profile.skills or [])]),
+                    json.dumps([p.model_dump(mode='json') for p in (profile.projects or [])]),
+                    json.dumps([c.model_dump(mode='json') for c in (profile.certifications or [])]),
+                    json.dumps([a.model_dump(mode='json') for a in (profile.awards or [])]),
+                    json.dumps([p.model_dump(mode='json') for p in (profile.publications or [])]),
+                    json.dumps([v.model_dump(mode='json') for v in (profile.volunteering or [])]),
+                    json.dumps([l.model_dump(mode='json') for l in (profile.languages or [])]),
+                    json.dumps([s.model_dump(mode='json') for s in (profile.socials or [])]),
+                    json.dumps([r.model_dump(mode='json') for r in (profile.recommendations or [])]),
+                    json.dumps(profile.writing_preferences.model_dump(mode='json')),
+                    created_at_str,
+                    updated_at_str,
                 ),
             )
             await conn.commit()
@@ -129,9 +154,20 @@ class Database:
                     return UserProfile(
                         user_id=row[0],
                         personal_info=json.loads(row[1]),
-                        writing_preferences=json.loads(row[2]),
-                        created_at=row[3],
-                        updated_at=row[4],
+                        education=json.loads(row[2]) if row[2] else [],
+                        experience=json.loads(row[3]) if row[3] else [],
+                        skills=json.loads(row[4]) if row[4] else [],
+                        projects=json.loads(row[5]) if row[5] else [],
+                        certifications=json.loads(row[6]) if row[6] else [],
+                        awards=json.loads(row[7]) if row[7] else [],
+                        publications=json.loads(row[8]) if row[8] else [],
+                        volunteering=json.loads(row[9]) if row[9] else [],
+                        languages=json.loads(row[10]) if row[10] else [],
+                        socials=json.loads(row[11]) if row[11] else [],
+                        recommendations=json.loads(row[12]) if row[12] else [],
+                        writing_preferences=json.loads(row[13]),
+                        created_at=datetime.fromisoformat(row[14]),
+                        updated_at=datetime.fromisoformat(row[15]),
                     )
                 return None
 

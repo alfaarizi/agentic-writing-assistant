@@ -140,7 +140,7 @@ class Experience(BaseModel):
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     description: Optional[str] = None
-    achievements: List[str] = Field(default_factory=list)
+    achievements: Optional[str] = None
     skills: List[str] = Field(default_factory=list)
 
 

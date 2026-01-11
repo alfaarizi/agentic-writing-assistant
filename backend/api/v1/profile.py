@@ -43,7 +43,7 @@ async def create_profile(
             detail=f"Profile for user {profile.user_id} already exists",
         )
 
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(timezone.utc)
     profile.created_at = now
     profile.updated_at = now
 
@@ -72,7 +72,7 @@ async def update_profile(
             detail=f"Profile for user {user_id} not found",
         )
 
-    profile.updated_at = datetime.now(timezone.utc).isoformat()
+    profile.updated_at = datetime.now(timezone.utc)
 
     await database.save_user_profile(profile)
 
@@ -126,9 +126,9 @@ async def upload_resume(
     if existing:
         profile.created_at = existing.created_at
     else:
-        profile.created_at = datetime.now(timezone.utc).isoformat()
+        profile.created_at = datetime.now(timezone.utc)
     
-    profile.updated_at = datetime.now(timezone.utc).isoformat()
+    profile.updated_at = datetime.now(timezone.utc)
     await database.save_user_profile(profile)
     
     return profile

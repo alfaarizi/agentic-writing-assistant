@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,7 +26,8 @@ import {
   Heart,
   Languages,
   Link as LinkIcon,
-  MessageSquare
+  MessageSquare,
+  Trash2
 } from 'lucide-react';
 import { getProfile, saveProfile, uploadResume, type UserProfile } from '@/lib/api';
 import { EducationInput } from './profile/EducationInput';
@@ -54,6 +55,7 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resumeUploaded, setResumeUploaded] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
   
   // Personal Info fields
   const [firstName, setFirstName] = useState('');
@@ -87,6 +89,123 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
   // Writing Preferences
   const [tone, setTone] = useState('professional');
   const [style, setStyle] = useState('concise');
+  
+  // Accordion state
+  const [openAccordions, setOpenAccordions] = useState<string[]>(['writing']);
+
+  // Load form data from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('awa_form_data');
+    if (saved) {
+      try {
+        const data = JSON.parse(saved);
+        if (data.firstName !== undefined) setFirstName(data.firstName);
+        if (data.lastName !== undefined) setLastName(data.lastName);
+        if (data.preferredName !== undefined) setPreferredName(data.preferredName);
+        if (data.pronouns !== undefined) setPronouns(data.pronouns);
+        if (data.dateOfBirth !== undefined) setDateOfBirth(data.dateOfBirth);
+        if (data.email !== undefined) setEmail(data.email);
+        if (data.phone !== undefined) setPhone(data.phone);
+        if (data.city !== undefined) setCity(data.city);
+        if (data.country !== undefined) setCountry(data.country);
+        if (data.citizenship !== undefined) setCitizenship(data.citizenship);
+        if (data.headline !== undefined) setHeadline(data.headline);
+        if (data.summary !== undefined) setSummary(data.summary);
+        if (data.background !== undefined) setBackground(data.background);
+        if (data.interests !== undefined) setInterests(data.interests);
+        // Always set arrays, even if empty
+        if (Array.isArray(data.education)) setEducation(data.education);
+        if (Array.isArray(data.experience)) setExperience(data.experience);
+        if (Array.isArray(data.skills)) setSkills(data.skills);
+        if (Array.isArray(data.projects)) setProjects(data.projects);
+        if (Array.isArray(data.certifications)) setCertifications(data.certifications);
+        if (Array.isArray(data.awards)) setAwards(data.awards);
+        if (Array.isArray(data.publications)) setPublications(data.publications);
+        if (Array.isArray(data.volunteering)) setVolunteering(data.volunteering);
+        if (Array.isArray(data.languages)) setLanguages(data.languages);
+        if (Array.isArray(data.socials)) setSocials(data.socials);
+        if (Array.isArray(data.recommendations)) setRecommendations(data.recommendations);
+        if (data.tone !== undefined) setTone(data.tone);
+        if (data.style !== undefined) setStyle(data.style);
+      } catch (err) {
+        console.error('Failed to load form data from localStorage:', err);
+      }
+    }
+    
+    // Load accordion state
+    const savedAccordions = localStorage.getItem('awa_accordion_state');
+    if (savedAccordions) {
+      try {
+        const accordionState = JSON.parse(savedAccordions);
+        if (Array.isArray(accordionState)) {
+          setOpenAccordions(accordionState);
+        }
+      } catch (err) {
+        console.error('Failed to load accordion state from localStorage:', err);
+      }
+    }
+    
+    // Mark as initialized after loading
+    setIsInitialized(true);
+  }, []);
+
+  // Save form data to localStorage whenever it changes (only after initial load)
+  // Debounced to avoid excessive saves on every keystroke
+  useEffect(() => {
+    if (!isInitialized) return; // Don't save until we've loaded initial data
+    
+    const timeoutId = setTimeout(() => {
+      const formData = {
+        firstName,
+        lastName,
+        preferredName,
+        pronouns,
+        dateOfBirth,
+        email,
+        phone,
+        city,
+        country,
+        citizenship,
+        headline,
+        summary,
+        background,
+        interests,
+        // Always save arrays, even if empty
+        education: education || [],
+        experience: experience || [],
+        skills: skills || [],
+        projects: projects || [],
+        certifications: certifications || [],
+        awards: awards || [],
+        publications: publications || [],
+        volunteering: volunteering || [],
+        languages: languages || [],
+        socials: socials || [],
+        recommendations: recommendations || [],
+        tone,
+        style,
+      };
+      localStorage.setItem('awa_form_data', JSON.stringify(formData));
+    }, 500); // Wait 500ms after last change before saving
+    
+    return () => clearTimeout(timeoutId);
+  }, [
+    isInitialized, firstName, lastName, preferredName, pronouns, dateOfBirth, email, phone,
+    city, country, citizenship, headline, summary, background, interests,
+    education, experience, skills, projects, certifications, awards,
+    publications, volunteering, languages, socials, recommendations, tone, style
+  ]);
+
+  // Save accordion state to localStorage (debounced)
+  useEffect(() => {
+    if (!isInitialized) return;
+    
+    const timeoutId = setTimeout(() => {
+      localStorage.setItem('awa_accordion_state', JSON.stringify(openAccordions));
+    }, 300); // Shorter delay for accordion state
+    
+    return () => clearTimeout(timeoutId);
+  }, [isInitialized, openAccordions]);
 
   // Helper to treat "Unknown" fallback values as empty
   const normalizeValue = (value: string | undefined | null): string => {
@@ -94,7 +213,35 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
     return value;
   };
 
-  const populateFromProfile = (profile: UserProfile) => {
+  // Helper to normalize dates to yyyy-MM format for type="month" inputs
+  const normalizeDate = (value: string | undefined | null): string => {
+    if (!value) return '';
+    
+    // If it's already in yyyy-MM format, return as is
+    if (/^\d{4}-\d{2}$/.test(value)) return value;
+    
+    // If it's just a year (e.g., "2022"), convert to "yyyy-01"
+    if (/^\d{4}$/.test(value)) return `${value}-01`;
+    
+    // If it's in yyyy-MM-dd format, extract yyyy-MM
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value.substring(0, 7);
+    
+    // If it's any other format, try to parse and format
+    try {
+      const date = new Date(value);
+      if (!isNaN(date.getTime())) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        return `${year}-${month}`;
+      }
+    } catch (e) {
+      // If parsing fails, return empty
+    }
+    
+    return '';
+  };
+
+  const populateFromProfile = (profile: UserProfile, openAccordionsAfter = false) => {
     const pi = profile.personal_info;
     setFirstName(normalizeValue(pi.first_name));
     setLastName(normalizeValue(pi.last_name));
@@ -111,22 +258,72 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
     setBackground(pi.background || '');
     setInterests(pi.interests?.join(', ') || '');
     
-    // Populate all sections
-    setEducation(profile.education || []);
-    setExperience(profile.experience || []);
-    setSkills(profile.skills || []);
-    setProjects(profile.projects || []);
-    setCertifications(profile.certifications || []);
-    setAwards(profile.awards || []);
-    setPublications(profile.publications || []);
-    setVolunteering(profile.volunteering || []);
-    setLanguages(profile.languages || []);
-    setSocials(profile.socials || []);
-    setRecommendations(profile.recommendations || []);
+    // Populate all sections - always ensure arrays are set (never undefined)
+    // Normalize dates to yyyy-MM format for type="month" inputs
+    setEducation(Array.isArray(profile.education) ? profile.education.map(edu => ({
+      ...edu,
+      start_date: normalizeDate(edu.start_date),
+      end_date: normalizeDate(edu.end_date),
+    })) : []);
+    setExperience(Array.isArray(profile.experience) ? profile.experience.map(exp => ({
+      ...exp,
+      start_date: normalizeDate(exp.start_date),
+      end_date: normalizeDate(exp.end_date),
+    })) : []);
+    setSkills(Array.isArray(profile.skills) ? profile.skills : []);
+    setProjects(Array.isArray(profile.projects) ? profile.projects.map(proj => ({
+      ...proj,
+      start_date: normalizeDate(proj.start_date),
+      end_date: normalizeDate(proj.end_date),
+    })) : []);
+    setCertifications(Array.isArray(profile.certifications) ? profile.certifications.map(cert => ({
+      ...cert,
+      issue_date: normalizeDate(cert.issue_date),
+      expiration_date: normalizeDate(cert.expiration_date),
+    })) : []);
+    setAwards(Array.isArray(profile.awards) ? profile.awards.map(award => ({
+      ...award,
+      issue_date: normalizeDate(award.issue_date),
+    })) : []);
+    setPublications(Array.isArray(profile.publications) ? profile.publications.map(pub => ({
+      ...pub,
+      publication_date: normalizeDate(pub.publication_date),
+    })) : []);
+    setVolunteering(Array.isArray(profile.volunteering) ? profile.volunteering.map(vol => ({
+      ...vol,
+      start_date: normalizeDate(vol.start_date),
+      end_date: normalizeDate(vol.end_date),
+    })) : []);
+    setLanguages(Array.isArray(profile.languages) ? profile.languages : []);
+    setSocials(Array.isArray(profile.socials) ? profile.socials : []);
+    setRecommendations(Array.isArray(profile.recommendations) ? profile.recommendations.map(rec => ({
+      ...rec,
+      date: normalizeDate(rec.date),
+    })) : []);
     
     if (profile.writing_preferences) {
       setTone(profile.writing_preferences.tone || 'professional');
       setStyle(profile.writing_preferences.style || 'concise');
+    }
+
+    // Open accordions that have data
+    if (openAccordionsAfter) {
+      const accordionsToOpen: string[] = ['personal']; // Always open personal
+      
+      if (profile.education && profile.education.length > 0) accordionsToOpen.push('education');
+      if (profile.experience && profile.experience.length > 0) accordionsToOpen.push('experience');
+      if (profile.skills && profile.skills.length > 0) accordionsToOpen.push('skills');
+      if (profile.projects && profile.projects.length > 0) accordionsToOpen.push('projects');
+      if (profile.certifications && profile.certifications.length > 0) accordionsToOpen.push('certifications');
+      if (profile.awards && profile.awards.length > 0) accordionsToOpen.push('awards');
+      if (profile.publications && profile.publications.length > 0) accordionsToOpen.push('publications');
+      if (profile.volunteering && profile.volunteering.length > 0) accordionsToOpen.push('volunteering');
+      if (profile.languages && profile.languages.length > 0) accordionsToOpen.push('languages');
+      if (profile.socials && profile.socials.length > 0) accordionsToOpen.push('socials');
+      if (profile.recommendations && profile.recommendations.length > 0) accordionsToOpen.push('recommendations');
+      if (profile.writing_preferences) accordionsToOpen.push('writing');
+      
+      setOpenAccordions(accordionsToOpen);
     }
   };
 
@@ -141,7 +338,7 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
     try {
       const profile = await getProfile(userId);
       if (profile) {
-        populateFromProfile(profile);
+        populateFromProfile(profile, true); // Pass true to open accordions with data
         setSuccess(true);
         setTimeout(() => setSuccess(false), 3000);
       } else {
@@ -177,7 +374,7 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
     setError(null);
     try {
       const profile = await uploadResume(userId, file);
-      populateFromProfile(profile);
+      populateFromProfile(profile, true); // Pass true to open accordions with data
       setResumeUploaded(true);
       setSuccess(true);
       onProfileSaved?.(profile);
@@ -248,15 +445,74 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
     }
   };
 
+  const handleClearAll = () => {
+    if (!confirm('Are you sure you want to clear all profile data? This action cannot be undone.')) {
+      return;
+    }
+    
+    // Clear all form fields
+    setFirstName('');
+    setLastName('');
+    setPreferredName('');
+    setPronouns('');
+    setDateOfBirth('');
+    setEmail('');
+    setPhone('');
+    setCity('');
+    setCountry('');
+    setCitizenship('');
+    setHeadline('');
+    setSummary('');
+    setBackground('');
+    setInterests('');
+    setEducation([]);
+    setExperience([]);
+    setSkills([]);
+    setProjects([]);
+    setCertifications([]);
+    setAwards([]);
+    setPublications([]);
+    setVolunteering([]);
+    setLanguages([]);
+    setSocials([]);
+    setRecommendations([]);
+    setTone('professional');
+    setStyle('concise');
+    
+    // Close all accordions
+    setOpenAccordions([]);
+    
+    // Clear localStorage
+    localStorage.removeItem('awa_form_data');
+    localStorage.removeItem('awa_accordion_state');
+    
+    // Clear any errors/success states
+    setError(null);
+    setSuccess(false);
+    setResumeUploaded(false);
+  };
+
   const isDisabled = loading || fetching || uploading;
 
   return (
     <Card className="w-full border-2 border-black dark:border-white bg-background">
       <CardHeader className="pb-3 border-b border-border">
-        <CardTitle className="text-base font-semibold flex items-center gap-2">
-          <User className="h-4 w-4" />
-          Profile Information
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base font-semibold flex items-center gap-2">
+            <User className="h-4 w-4" />
+            Profile Information
+          </CardTitle>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleClearAll}
+            disabled={isDisabled}
+            className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+            title="Clear all profile data"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* User ID & Actions Section */}
@@ -315,9 +571,15 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
                 )}
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Upload a PDF or DOCX resume to auto-fill your profile. All fields remain editable.
-            </p>
+            {!userId.trim() ? (
+              <p className="text-xs text-amber-600 font-medium">
+                ⚠️ Please enter a User ID first to enable resume upload
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Upload a PDF or DOCX resume to auto-fill your profile. All fields remain editable.
+              </p>
+            )}
             {resumeUploaded && (
               <div className="flex items-center gap-2 text-xs text-green-600">
                 <CheckCircle2 className="h-3.5 w-3.5" />
@@ -346,7 +608,12 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
         )}
 
         {/* Accordion for all sections */}
-        <Accordion type="multiple" className="w-full" defaultValue={['personal', 'writing']}>
+        <Accordion 
+          type="multiple" 
+          className="w-full" 
+          value={openAccordions}
+          onValueChange={setOpenAccordions}
+        >
           {/* Personal Information */}
           <AccordionItem value="personal">
             <AccordionTrigger className="text-sm font-semibold">

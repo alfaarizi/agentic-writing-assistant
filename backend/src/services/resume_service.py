@@ -130,7 +130,7 @@ class ResumeService:
                 start_date=exp.get("start_date"),
                 end_date=exp.get("end_date"),
                 description=exp.get("description"),
-                achievements=exp.get("achievements") or [],
+                achievements=exp.get("achievements"),
                 skills=exp.get("skills") or [],
             )
             for exp in data.get("experience", [])

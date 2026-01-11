@@ -25,7 +25,7 @@ export function ExperienceInput({ value, onChange, disabled }: ExperienceInputPr
         start_date: '',
         end_date: '',
         description: '',
-        achievements: [],
+        achievements: '',
         skills: [],
       },
     ]);
@@ -179,15 +179,9 @@ export function ExperienceInput({ value, onChange, disabled }: ExperienceInputPr
           <div className="space-y-2">
             <Label className="text-sm">Achievements</Label>
             <Textarea
-              value={exp.achievements?.join('\n') || ''}
-              onChange={(e) =>
-                updateExperience(
-                  index,
-                  'achievements',
-                  e.target.value.split('\n').filter(Boolean)
-                )
-              }
-              placeholder="One achievement per line&#10;Led team of 5 engineers&#10;Built ML pipeline processing 10M events/day"
+              value={exp.achievements || ''}
+              onChange={(e) => updateExperience(index, 'achievements', e.target.value)}
+              placeholder="Key accomplishments and results...&#10;&#10;• Led team of 5 engineers&#10;• Built ML pipeline processing 10M events/day&#10;• Increased system efficiency by 40%"
               rows={3}
               disabled={disabled}
               className="resize-none border-2 border-black dark:border-white"

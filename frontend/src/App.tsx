@@ -170,7 +170,7 @@ function App() {
               )}
             </TabsList>
 
-            <TabsContent value="profile" className="space-y-3 focus-visible:outline-none">
+            <TabsContent value="profile" className="space-y-3 focus-visible:outline-none" forceMount hidden={activeTab !== 'profile'}>
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                 <div className="lg:col-span-2 space-y-3">
                   <ProfileForm 
@@ -303,7 +303,7 @@ function App() {
               </div>
             </TabsContent>
 
-            <TabsContent value="generate" className="space-y-3 focus-visible:outline-none">
+            <TabsContent value="generate" className="space-y-3 focus-visible:outline-none" forceMount hidden={activeTab !== 'generate'}>
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                 <div className="lg:col-span-2 space-y-3">
                   <WritingForm
@@ -377,7 +377,7 @@ function App() {
             </TabsContent>
 
             {result && (
-              <TabsContent value="result" className="space-y-3 focus-visible:outline-none">
+              <TabsContent value="result" className="space-y-3 focus-visible:outline-none" forceMount hidden={activeTab !== 'result'}>
                 <WritingResult result={result} />
                 {generationHistory.length > 1 && (
                   <Card className="border-2 border-black dark:border-white">
