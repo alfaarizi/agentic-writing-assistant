@@ -34,7 +34,7 @@ export function WritingPreferencesInput({ value, onChange, disabled }: WritingPr
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="tone" className="text-sm">Tone</Label>
           <Select
@@ -42,7 +42,7 @@ export function WritingPreferencesInput({ value, onChange, disabled }: WritingPr
             onValueChange={(val) => onChange({ ...value, tone: val })}
             disabled={disabled}
           >
-            <SelectTrigger id="tone" className="border-2 border-black dark:border-white">
+            <SelectTrigger id="tone" className="w-full border-2 border-black dark:border-white">
               <SelectValue placeholder="Select tone" />
             </SelectTrigger>
             <SelectContent>
@@ -62,7 +62,7 @@ export function WritingPreferencesInput({ value, onChange, disabled }: WritingPr
             onValueChange={(val) => onChange({ ...value, style: val })}
             disabled={disabled}
           >
-            <SelectTrigger id="style" className="border-2 border-black dark:border-white">
+            <SelectTrigger id="style" className="w-full border-2 border-black dark:border-white">
               <SelectValue placeholder="Select style" />
             </SelectTrigger>
             <SelectContent>

@@ -28,7 +28,7 @@ import {
   MessageSquare,
   Trash2
 } from 'lucide-react';
-import { getProfile, saveProfile, uploadResume, type UserProfile, type WritingPreferences } from '@/lib/api';
+import { getProfile, saveProfile, uploadResume, getWritingSamples, type UserProfile, type WritingPreferences, type WritingSample } from '@/lib/api';
 import { EducationInput } from './profile/EducationInput';
 import { ExperienceInput } from './profile/ExperienceInput';
 import { SkillInput } from './profile/SkillInput';
@@ -58,7 +58,6 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
   const [resumeUploaded, setResumeUploaded] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   
-  // Personal Info fields
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [preferredName, setPreferredName] = useState('');
@@ -74,7 +73,6 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
   const [background, setBackground] = useState('');
   const [interests, setInterests] = useState('');
   
-  // Profile sections
   const [education, setEducation] = useState<UserProfile['education']>([]);
   const [experience, setExperience] = useState<UserProfile['experience']>([]);
   const [skills, setSkills] = useState<UserProfile['skills']>([]);
@@ -87,17 +85,15 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
   const [socials, setSocials] = useState<UserProfile['socials']>([]);
   const [recommendations, setRecommendations] = useState<UserProfile['recommendations']>([]);
   
-  // Writing Preferences
   const [writingPreferences, setWritingPreferences] = useState<WritingPreferences>({
     tone: 'professional',
     style: 'concise',
     common_phrases: [],
   });
   
-  // Accordion state
+  const [writingSamples, setWritingSamples] = useState<WritingSample[]>([]);
   const [openAccordions, setOpenAccordions] = useState<string[]>(['writing']);
 
-  // Load form data from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem('awa_form_data');
     if (saved) {
@@ -117,7 +113,6 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
         if (data.summary !== undefined) setSummary(data.summary);
         if (data.background !== undefined) setBackground(data.background);
         if (data.interests !== undefined) setInterests(data.interests);
-        // Always set arrays, even if empty
         if (Array.isArray(data.education)) setEducation(data.education);
         if (Array.isArray(data.experience)) setExperience(data.experience);
         if (Array.isArray(data.skills)) setSkills(data.skills);
@@ -130,12 +125,12 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
         if (Array.isArray(data.socials)) setSocials(data.socials);
         if (Array.isArray(data.recommendations)) setRecommendations(data.recommendations);
         if (data.writingPreferences !== undefined) setWritingPreferences(data.writingPreferences);
+        if (Array.isArray(data.writingSamples)) setWritingSamples(data.writingSamples);
       } catch (err) {
         console.error('Failed to load form data from localStorage:', err);
       }
     }
     
-    // Load accordion state
     const savedAccordions = localStorage.getItem('awa_accordion_state');
     if (savedAccordions) {
       try {
@@ -148,14 +143,11 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
       }
     }
     
-    // Mark as initialized after loading
     setIsInitialized(true);
   }, []);
 
-  // Save form data to localStorage whenever it changes (only after initial load)
-  // Debounced to avoid excessive saves on every keystroke
   useEffect(() => {
-    if (!isInitialized) return; // Don't save until we've loaded initial data
+    if (!isInitialized) return;
     
     const timeoutId = setTimeout(() => {
       const formData = {
@@ -173,7 +165,6 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
         summary,
         background,
         interests,
-        // Always save arrays, even if empty
         education: education || [],
         experience: experience || [],
         skills: skills || [],
@@ -186,49 +177,41 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
         socials: socials || [],
         recommendations: recommendations || [],
         writingPreferences,
+        writingSamples: writingSamples || [],
       };
       localStorage.setItem('awa_form_data', JSON.stringify(formData));
-    }, 500); // Wait 500ms after last change before saving
+    }, 500);
     
     return () => clearTimeout(timeoutId);
   }, [
     isInitialized, firstName, lastName, preferredName, pronouns, dateOfBirth, email, phone,
     city, country, citizenship, headline, summary, background, interests,
     education, experience, skills, projects, certifications, awards,
-    publications, volunteering, languages, socials, recommendations, writingPreferences
+    publications, volunteering, languages, socials, recommendations, writingPreferences, writingSamples
   ]);
 
-  // Save accordion state to localStorage (debounced)
   useEffect(() => {
     if (!isInitialized) return;
     
     const timeoutId = setTimeout(() => {
       localStorage.setItem('awa_accordion_state', JSON.stringify(openAccordions));
-    }, 300); // Shorter delay for accordion state
+    }, 300);
     
     return () => clearTimeout(timeoutId);
   }, [isInitialized, openAccordions]);
 
-  // Helper to treat "Unknown" fallback values as empty
   const normalizeValue = (value: string | undefined | null): string => {
     if (!value || value === 'Unknown') return '';
     return value;
   };
 
-  // Helper to normalize dates to yyyy-MM format for type="month" inputs
   const normalizeDate = (value: string | undefined | null): string => {
     if (!value) return '';
     
-    // If it's already in yyyy-MM format, return as is
     if (/^\d{4}-\d{2}$/.test(value)) return value;
-    
-    // If it's just a year (e.g., "2022"), convert to "yyyy-01"
     if (/^\d{4}$/.test(value)) return `${value}-01`;
-    
-    // If it's in yyyy-MM-dd format, extract yyyy-MM
     if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value.substring(0, 7);
     
-    // If it's any other format, try to parse and format
     try {
       const date = new Date(value);
       if (!isNaN(date.getTime())) {
@@ -236,8 +219,8 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
         const month = String(date.getMonth() + 1).padStart(2, '0');
         return `${year}-${month}`;
       }
-    } catch (e) {
-      // If parsing fails, return empty
+    } catch {
+      return '';
     }
     
     return '';
@@ -260,8 +243,6 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
     setBackground(pi.background || '');
     setInterests(pi.interests?.join(', ') || '');
     
-    // Populate all sections - always ensure arrays are set (never undefined)
-    // Normalize dates to yyyy-MM format for type="month" inputs
     setEducation(Array.isArray(profile.education) ? profile.education.map(edu => ({
       ...edu,
       start_date: normalizeDate(edu.start_date),
@@ -307,9 +288,8 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
       setWritingPreferences(profile.writing_preferences || { tone: 'professional', style: 'concise', common_phrases: [] });
     }
 
-    // Open accordions that have data
     if (openAccordionsAfter) {
-      const accordionsToOpen: string[] = ['personal']; // Always open personal
+      const accordionsToOpen: string[] = ['personal'];
       
       if (profile.education && profile.education.length > 0) accordionsToOpen.push('education');
       if (profile.experience && profile.experience.length > 0) accordionsToOpen.push('experience');
@@ -339,7 +319,26 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
     try {
       const profile = await getProfile(userId);
       if (profile) {
-        populateFromProfile(profile, true); // Pass true to open accordions with data
+        populateFromProfile(profile, true);
+        
+        try {
+          const samples = await getWritingSamples(userId);
+          const fetchedSamples = Array.isArray(samples) ? samples : [];
+          setWritingSamples(fetchedSamples);
+          
+          if (fetchedSamples.length > 0) {
+            setOpenAccordions(prev => {
+              if (!prev.includes('samples')) {
+                return [...prev, 'samples'];
+              }
+              return prev;
+            });
+          }
+        } catch (err) {
+          console.warn('Failed to fetch writing samples:', err);
+          setWritingSamples([]);
+        }
+        
         setSuccess(true);
         setTimeout(() => setSuccess(false), 3000);
       } else {
@@ -375,7 +374,7 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
     setError(null);
     try {
       const profile = await uploadResume(userId, file);
-      populateFromProfile(profile, true); // Pass true to open accordions with data
+      populateFromProfile(profile, true);
       setResumeUploaded(true);
       setSuccess(true);
       onProfileSaved?.(profile);
@@ -450,7 +449,6 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
       return;
     }
     
-    // Clear all form fields
     setFirstName('');
     setLastName('');
     setPreferredName('');
@@ -477,15 +475,10 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
     setSocials([]);
     setRecommendations([]);
     setWritingPreferences({ tone: 'professional', style: 'concise', common_phrases: [] });
-    
-    // Close all accordions
+    setWritingSamples([]);
     setOpenAccordions([]);
-    
-    // Clear localStorage
     localStorage.removeItem('awa_form_data');
     localStorage.removeItem('awa_accordion_state');
-    
-    // Clear any errors/success states
     setError(null);
     setSuccess(false);
     setResumeUploaded(false);
@@ -985,9 +978,23 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
               </p>
               <WritingSampleUpload
                 userId={userId}
-                onUploadSuccess={() => {
+                initialSamples={writingSamples}
+                onUploadSuccess={async () => {
+                  try {
+                    const samples = await getWritingSamples(userId);
+                    setWritingSamples(samples);
+                  } catch (err) {
+                    console.warn('Failed to refresh writing samples:', err);
+                  }
                   setSuccess(true);
                   setTimeout(() => setSuccess(false), 3000);
+                }}
+                onSamplesChange={(samples) => {
+                  const currentKey = JSON.stringify(writingSamples);
+                  const newKey = JSON.stringify(samples);
+                  if (currentKey !== newKey) {
+                    setWritingSamples(samples);
+                  }
                 }}
                 disabled={isDisabled}
               />

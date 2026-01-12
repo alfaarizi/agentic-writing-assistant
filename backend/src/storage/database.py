@@ -221,10 +221,18 @@ class Database:
 
 
     async def delete_user_profile(self, user_id: str) -> None:
-        """Delete a user profile by ID and clean up VectorDB."""
+        """Delete a user profile by ID and clean up VectorDB and writing samples."""
         async with self._get_connection() as conn:
             await conn.execute("PRAGMA foreign_keys = ON")
             
+            samples = await self.get_user_writing_samples(user_id)
+            for sample in samples:
+                try:
+                    self.vector_db.delete(ids=[f"{user_id}_sample_{sample.sample_id}"])
+                except Exception as e:
+                    logging.warning(f"Failed to delete sample {sample.sample_id} from VectorDB: {e}")
+            
+            await conn.execute("DELETE FROM writing_samples WHERE user_id = ?", (user_id,))
             await conn.execute("DELETE FROM user_profiles WHERE user_id = ?", (user_id,))
             
             await conn.commit()
