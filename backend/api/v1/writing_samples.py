@@ -2,10 +2,13 @@
 
 import uuid
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+import pdfplumber
+from docx import Document
 
+from api.config import settings
 from api.dependencies import get_database
 from models.user import WritingSample
 from storage.database import Database
@@ -154,7 +157,7 @@ async def delete_writing_sample(
 ) -> None:
     """
     Delete writing sample.
-    
+
     Permanently deletes a writing sample.
     """
     sample = await database.get_writing_sample(sample_id)
@@ -164,4 +167,68 @@ async def delete_writing_sample(
             detail=f"Writing sample {sample_id} not found",
         )
     await database.delete_writing_sample(sample_id)
+
+
+@router.post("/users/{user_id}/writing-samples/upload", response_model=WritingSample, status_code=status.HTTP_201_CREATED, tags=["Writing Samples"])
+async def upload_writing_sample(
+    user_id: str,
+    file: UploadFile = File(...),
+    type: Literal["cover_letter", "motivational_letter", "email", "social_response"] = Form(...),
+    context: str = Form(...),
+    quality_score: Optional[float] = Form(None),
+    database: Database = Depends(get_database),
+) -> WritingSample:
+    """
+    Upload writing sample file (PDF, DOCX, TXT). Max size: 10MB.
+    """
+    import json
+    import io
+
+    if not await database.get_user_profile(user_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"User {user_id} not found")
+
+    if not file.filename or file.filename.lower().split('.')[-1] not in ['pdf', 'docx', 'txt']:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Use PDF, DOCX, or TXT file")
+
+    try:
+        content_bytes = await file.read()
+        if len(content_bytes) > settings.MAX_RESUME_FILE_SIZE_MB * 1024 * 1024:
+            raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=f"Max size {settings.MAX_RESUME_FILE_SIZE_MB}MB")
+
+        file_ext = file.filename.lower().split('.')[-1]
+        if file_ext == 'pdf':
+            with pdfplumber.open(io.BytesIO(content_bytes)) as pdf:
+                text_content = "\n".join(page.extract_text() or "" for page in pdf.pages)
+        elif file_ext == 'docx':
+            doc = Document(io.BytesIO(content_bytes))
+            text_content = "\n".join(para.text for para in doc.paragraphs)
+        else:
+            text_content = content_bytes.decode('utf-8')
+
+        if not (text_content := text_content.strip()):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File contains no text")
+
+        context_dict = json.loads(context)
+        now = datetime.now(timezone.utc)
+
+        sample = WritingSample(
+            sample_id=str(uuid.uuid4()),
+            user_id=user_id,
+            content=text_content,
+            type=type,
+            context=context_dict,
+            quality_score=quality_score,
+            created_at=now,
+            updated_at=now,
+        )
+
+        await database.save_writing_sample(sample)
+        return sample
+
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid context JSON")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to process file: {str(e)}")
 

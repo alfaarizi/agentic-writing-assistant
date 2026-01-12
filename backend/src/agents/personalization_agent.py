@@ -203,6 +203,7 @@ Assess and match these aspects of the user's communication style:
 
 **Vocabulary Matching:**
 - Use words and phrases from their writing samples
+- Incorporate their preferred common phrases naturally
 - Match technical sophistication level
 - Preserve their signature expressions
 
@@ -432,12 +433,17 @@ Requirements:
         if prefs := profile_dict.get('writing_preferences'):
             tone = prefs.get('tone')
             style = prefs.get('style')
-            if tone or style:
-                writing_style_section = \
-                    f"""
-                    **Tone:** {tone or 'Not specified'}
-                    **Style:** {style or 'Not specified'}
-                    """
+            common_phrases = prefs.get('common_phrases', [])
+
+            if tone or style or common_phrases:
+                parts = [
+                    f"**Tone:** {tone or 'Not specified'}",
+                    f"**Style:** {style or 'Not specified'}"
+                ]
+                if common_phrases:
+                    parts.append(f"**Common Phrases:** {', '.join(f'\"' + p + '\"' for p in common_phrases)}")
+
+                writing_style_section = f"\n{chr(10).join(parts)}"
 
         # build writing samples section
         writing_samples_section = ""

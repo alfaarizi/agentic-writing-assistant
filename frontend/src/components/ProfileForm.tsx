@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -29,7 +28,7 @@ import {
   MessageSquare,
   Trash2
 } from 'lucide-react';
-import { getProfile, saveProfile, uploadResume, type UserProfile } from '@/lib/api';
+import { getProfile, saveProfile, uploadResume, type UserProfile, type WritingPreferences } from '@/lib/api';
 import { EducationInput } from './profile/EducationInput';
 import { ExperienceInput } from './profile/ExperienceInput';
 import { SkillInput } from './profile/SkillInput';
@@ -38,6 +37,8 @@ import { CertificationInput } from './profile/CertificationInput';
 import { AwardInput } from './profile/AwardInput';
 import { PublicationInput } from './profile/PublicationInput';
 import { VolunteeringInput } from './profile/VolunteeringInput';
+import { WritingPreferencesInput } from './profile/WritingPreferencesInput';
+import { WritingSampleUpload } from './profile/WritingSampleUpload';
 import { LanguageInput } from './profile/LanguageInput';
 import { SocialInput } from './profile/SocialInput';
 import { RecommendationInput } from './profile/RecommendationInput';
@@ -87,8 +88,11 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
   const [recommendations, setRecommendations] = useState<UserProfile['recommendations']>([]);
   
   // Writing Preferences
-  const [tone, setTone] = useState('professional');
-  const [style, setStyle] = useState('concise');
+  const [writingPreferences, setWritingPreferences] = useState<WritingPreferences>({
+    tone: 'professional',
+    style: 'concise',
+    common_phrases: [],
+  });
   
   // Accordion state
   const [openAccordions, setOpenAccordions] = useState<string[]>(['writing']);
@@ -125,8 +129,7 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
         if (Array.isArray(data.languages)) setLanguages(data.languages);
         if (Array.isArray(data.socials)) setSocials(data.socials);
         if (Array.isArray(data.recommendations)) setRecommendations(data.recommendations);
-        if (data.tone !== undefined) setTone(data.tone);
-        if (data.style !== undefined) setStyle(data.style);
+        if (data.writingPreferences !== undefined) setWritingPreferences(data.writingPreferences);
       } catch (err) {
         console.error('Failed to load form data from localStorage:', err);
       }
@@ -182,8 +185,7 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
         languages: languages || [],
         socials: socials || [],
         recommendations: recommendations || [],
-        tone,
-        style,
+        writingPreferences,
       };
       localStorage.setItem('awa_form_data', JSON.stringify(formData));
     }, 500); // Wait 500ms after last change before saving
@@ -193,7 +195,7 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
     isInitialized, firstName, lastName, preferredName, pronouns, dateOfBirth, email, phone,
     city, country, citizenship, headline, summary, background, interests,
     education, experience, skills, projects, certifications, awards,
-    publications, volunteering, languages, socials, recommendations, tone, style
+    publications, volunteering, languages, socials, recommendations, writingPreferences
   ]);
 
   // Save accordion state to localStorage (debounced)
@@ -302,8 +304,7 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
     })) : []);
     
     if (profile.writing_preferences) {
-      setTone(profile.writing_preferences.tone || 'professional');
-      setStyle(profile.writing_preferences.style || 'concise');
+      setWritingPreferences(profile.writing_preferences || { tone: 'professional', style: 'concise', common_phrases: [] });
     }
 
     // Open accordions that have data
@@ -420,8 +421,7 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
           interests: interests.split(',').map(i => i.trim()).filter(Boolean),
         },
         writing_preferences: {
-          tone,
-          style,
+          ...writingPreferences,
         },
         education: (education || []).length > 0 ? education : undefined,
         experience: (experience || []).length > 0 ? experience : undefined,
@@ -476,8 +476,7 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
     setLanguages([]);
     setSocials([]);
     setRecommendations([]);
-    setTone('professional');
-    setStyle('concise');
+    setWritingPreferences({ tone: 'professional', style: 'concise', common_phrases: [] });
     
     // Close all accordions
     setOpenAccordions([]);
@@ -964,41 +963,34 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
               </div>
             </AccordionTrigger>
             <AccordionContent className="pt-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="tone" className="text-sm">Tone</Label>
-                  <Select value={tone} onValueChange={setTone} disabled={isDisabled}>
-                    <SelectTrigger id="tone" className="w-full border-2 border-black dark:border-white">
-                      <SelectValue placeholder="Select tone" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="professional">Professional</SelectItem>
-                      <SelectItem value="formal">Formal</SelectItem>
-                      <SelectItem value="conversational">Conversational</SelectItem>
-                      <SelectItem value="academic">Academic</SelectItem>
-                      <SelectItem value="enthusiastic">Enthusiastic</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <WritingPreferencesInput
+                value={writingPreferences}
+                onChange={setWritingPreferences}
+                disabled={isDisabled}
+              />
+            </AccordionContent>
+          </AccordionItem>
 
-                <div className="space-y-2">
-                  <Label htmlFor="style" className="text-sm">Style</Label>
-                  <Select value={style} onValueChange={setStyle} disabled={isDisabled}>
-                    <SelectTrigger id="style" className="w-full border-2 border-black dark:border-white">
-                      <SelectValue placeholder="Select style" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="concise">Concise</SelectItem>
-                      <SelectItem value="descriptive">Descriptive</SelectItem>
-                      <SelectItem value="narrative">Narrative</SelectItem>
-                      <SelectItem value="persuasive">Persuasive</SelectItem>
-                      <SelectItem value="reflective">Reflective</SelectItem>
-                      <SelectItem value="analytical">Analytical</SelectItem>
-                      <SelectItem value="technical">Technical</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+          {/* Writing Samples */}
+          <AccordionItem value="samples">
+            <AccordionTrigger className="text-sm font-semibold">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Writing Samples
               </div>
+            </AccordionTrigger>
+            <AccordionContent className="pt-4">
+              <p className="text-sm text-muted-foreground mb-4">
+                Upload examples of your past writing to help personalize generated content to match your unique voice and style.
+              </p>
+              <WritingSampleUpload
+                userId={userId}
+                onUploadSuccess={() => {
+                  setSuccess(true);
+                  setTimeout(() => setSuccess(false), 3000);
+                }}
+                disabled={isDisabled}
+              />
             </AccordionContent>
           </AccordionItem>
         </Accordion>

@@ -118,7 +118,17 @@ export interface WritingPreferences {
   tone?: string;
   style?: string;
   common_phrases?: string[];
-  writing_samples?: string[];
+}
+
+export interface WritingSample {
+  sample_id: string;
+  user_id: string;
+  content: string;
+  type: 'cover_letter' | 'motivational_letter' | 'email' | 'social_response';
+  context: Record<string, any>;
+  quality_score?: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface UserProfile {
@@ -233,6 +243,69 @@ export async function uploadResume(userId: string, file: File): Promise<UserProf
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: 'Failed to upload resume' }));
     throw new Error(error.detail || 'Failed to upload resume');
+  }
+
+  return response.json();
+}
+
+export async function getWritingSamples(userId: string, type?: string): Promise<WritingSample[]> {
+  const params = type ? `?type=${type}` : '';
+  const response = await fetch(`${API_BASE_URL}/users/${userId}/writing-samples${params}`);
+
+  if (!response.ok) {
+    throw new Error('Failed to get writing samples');
+  }
+
+  return response.json();
+}
+
+export async function saveWritingSample(sample: Omit<WritingSample, 'created_at' | 'updated_at'>): Promise<WritingSample> {
+  const response = await fetch(`${API_BASE_URL}/users/${sample.user_id}/writing-samples`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(sample),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to save writing sample');
+  }
+
+  return response.json();
+}
+
+export async function deleteWritingSample(userId: string, sampleId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/users/${userId}/writing-samples/${sampleId}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to delete writing sample');
+  }
+}
+
+export async function uploadWritingSampleFile(
+  userId: string,
+  file: File,
+  type: 'cover_letter' | 'motivational_letter' | 'email' | 'social_response',
+  context: Record<string, any>,
+  qualityScore?: number
+): Promise<WritingSample> {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('type', type);
+  formData.append('context', JSON.stringify(context));
+  if (qualityScore !== undefined) {
+    formData.append('quality_score', qualityScore.toString());
+  }
+
+  const response = await fetch(`${API_BASE_URL}/users/${userId}/writing-samples/upload`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Failed to upload file' }));
+    throw new Error(error.detail || 'Failed to upload file');
   }
 
   return response.json();

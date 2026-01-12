@@ -107,7 +107,6 @@ class WritingPreferences(BaseModel):
     tone: Optional[WritingTone] = None
     style: Optional[WritingStyle] = None
     common_phrases: List[str] = Field(default_factory=list)
-    writing_samples: List[str] = Field(default_factory=list)
 
 
 # ============================================
