@@ -3,6 +3,7 @@
 from typing import Dict, Any, Optional, List
 
 from agents.base_agent import BaseAgent
+from models.user import WritingSample
 from storage.database import Database
 from utils import parse_json
 
@@ -28,56 +29,46 @@ class PersonalizationAgent(BaseAgent):
 
 
     def _retrieve_relevant_chunks(
-        self,
-        user_id: str,
-        content: str,
-        writing_context: Dict[str, Any]
-    ) -> List[str]:
-        """Retrieve relevant profile chunks via semantic search.
-
-        Builds contextual queries from content and writing context to find
-        the most relevant user profile information for personalization.
-
-        Args:
-            user_id: User ID to filter chunks
-            content: Draft content or query text (used for semantic matching)
-            writing_context: Context from WritingRequest (job_title, company, etc.)
-
-        Returns:
-            List of relevant profile chunk texts, deduplicated and limited to 15
-        """
+            self, 
+            user_id: str, 
+            content: str, 
+            writing_type: str, 
+            writing_context: Dict[str, Any]
+        ) -> List[str]:
+        """Retrieve relevant profile chunks via semantic search."""
         if not self.database or not self.database.vector_db:
             return []
 
         try:
             queries = []
-            
             if content and len(content) > 50:
                 queries.append(content[:500])
-            
-            if job_title := writing_context.get("job_title"):
-                queries.append(f"experience and skills for {job_title}")
-            if company := writing_context.get("company"):
-                queries.append(f"work experience at {company}")
-            if program_name := writing_context.get("program_name"):
-                queries.append(f"background and education for {program_name}")
-            if scholarship_name := writing_context.get("scholarship_name"):
-                queries.append(f"achievements and qualifications for {scholarship_name}")
-            if post_content := writing_context.get("post_content"):
-                post_preview = post_content[:200] if len(post_content) > 200 else post_content
-                queries.append(f"relevant experience and background for: {post_preview}")
-            if subject := writing_context.get("subject"):
-                queries.append(f"relevant experience and expertise for: {subject}")
-            elif reply_to := writing_context.get("reply_to"):
-                if not writing_context.get("post_content"):
-                    queries.append("professional background and communication style")
+
+            if writing_type == "cover_letter":
+                if job_title := writing_context.get("job_title"):
+                    queries.append(f"relevant work experience and skills for {job_title} position")
+                if company := writing_context.get("company"):
+                    queries.append(f"professional background relevant to {company}")
+            elif writing_type == "motivational_letter":
+                if program_name := writing_context.get("program_name"):
+                    queries.append(f"academic background and achievements for {program_name}")
+                if scholarship_name := writing_context.get("scholarship_name"):
+                    queries.append(f"accomplishments and qualifications for {scholarship_name}")
+            elif writing_type == "social_response":
+                if post_content := writing_context.get("post_content"):
+                    queries.append(f"relevant experience for: {post_content[:200]}")
+                if reply_to := writing_context.get("reply_to"):
+                    queries.append(f"background for engaging with {reply_to}")
+            elif writing_type == "email":
+                if subject := writing_context.get("subject"):
+                    queries.append(f"expertise and experience for: {subject}")
 
             if not queries:
-                queries.append("professional background experience skills achievements")
+                queries.append("professional background work experience education skills achievements")
 
             results = self.database.vector_db.query(
-                query_texts=queries[:3],
-                n_results=10,
+                query_texts=queries[:5],
+                n_results=12,
                 where={"user_id": user_id}
             )
 
@@ -88,8 +79,71 @@ class PersonalizationAgent(BaseAgent):
                     if doc and doc not in seen:
                         seen.add(doc)
                         chunks.append(doc)
+            return chunks[:18]
+        except Exception:
+            return []
 
-            return chunks[:15]
+
+    async def _retrieve_similar_samples(
+            self, 
+            user_id: str, 
+            content: str,
+            writing_type: str, 
+            writing_context: Dict[str, Any]
+        ) -> List[WritingSample]:
+        """Retrieve similar writing samples via semantic search."""
+        if not self.database or not self.database.vector_db:
+            return []
+
+        try:
+            queries = []
+            if content:
+                queries.append(content[:300])
+
+            if writing_type == "cover_letter":
+                if job_title := writing_context.get("job_title"):
+                    queries.append(f"cover letter for {job_title} position")
+                if company := writing_context.get("company"):
+                    queries.append(f"application to {company}")
+            elif writing_type == "motivational_letter":
+                if program_name := writing_context.get("program_name"):
+                    queries.append(f"motivation for {program_name}")
+                if scholarship_name := writing_context.get("scholarship_name"):
+                    queries.append(f"application for {scholarship_name}")
+            elif writing_type == "social_response":
+                if post_content := writing_context.get("post_content"):
+                    queries.append(post_content[:150])
+                if reply_to := writing_context.get("reply_to"):
+                    queries.append(f"response to {reply_to}")
+            elif writing_type == "email":
+                if subject := writing_context.get("subject"):
+                    queries.append(f"email regarding {subject}")
+
+            if not queries:
+                queries.append(writing_type.replace("_", " ") if writing_type else "writing sample")
+
+            where_filter = {"user_id": user_id, "type": "writing_sample"}
+            if writing_type:
+                where_filter["writing_type"] = writing_type
+
+            results = self.database.vector_db.query(
+                query_texts=queries,
+                n_results=5,
+                where=where_filter
+            )
+
+            sample_ids = list(dict.fromkeys([
+                metadata.get("sample_id")
+                for metadata_list in results.get("metadatas", [])
+                for metadata in metadata_list
+                if metadata.get("sample_id")
+            ]))[:3]
+
+            samples = []
+            for sample_id in sample_ids:
+                if sample := await self.database.get_writing_sample(sample_id):
+                    samples.append(sample)
+            return samples
         except Exception:
             return []
 
@@ -334,30 +388,23 @@ Requirements:
 
 
     async def personalize(
-        self,
-        content: str,
-        user_id: str,
-        writing_context: Dict[str, Any] = None,
-    ) -> str:
-        """Personalize content using semantic search for relevant profile data.
-        
-        Args:
-            content: Draft content to personalize
-            user_id: User ID to retrieve profile for
-            writing_context: Optional context (job_title, company, program_name, etc.)
-            
-        Returns:
-            Personalized content (original content if personalization fails)
-        """
+            self, 
+            content: str,
+            user_id: str, 
+            writing_type: str, 
+            writing_context: Dict[str, Any] = None
+        ) -> str:
+        """Personalize content using semantic search for relevant profile data."""
         if not self.database:
             return content
-            
+
         if not (profile := await self.database.get_user_profile(user_id)):
             return content
 
         relevant_chunks = self._retrieve_relevant_chunks(
             user_id,
             content,
+            writing_type,
             writing_context or {}
         )
 
@@ -394,22 +441,43 @@ Requirements:
 
         # build writing samples section
         writing_samples_section = ""
-        if samples := profile_dict.get('writing_preferences', {}).get('writing_samples'):
-            if samples:
+        if writing_type:
+            similar_samples = await self._retrieve_similar_samples(
+                user_id, 
+                content, 
+                writing_type, 
+                writing_context or {}
+            )
+
+            if similar_samples:
                 sample_texts = []
-                for i, sample in enumerate(samples[:2], 1):
-                    sample_texts.append(\
+                for i, sample in enumerate(similar_samples[:2], 1):
+                    ctx = sample.context
+                    
+                    if sample.type == "cover_letter":
+                        job_title, company = ctx.get("job_title"), ctx.get("company")
+                        context_summary = f"{job_title} at {company}" if job_title and company else job_title or company
+                    elif sample.type == "motivational_letter":
+                        context_summary = ctx.get("program_name") or ctx.get("scholarship_name")
+                    elif sample.type == "email":
+                        context_summary = ctx.get("subject")
+                    else:
+                        context_summary = None
+                    
+                    type_title = sample.type.replace('_', ' ').title()
+                    quality_text = f", Quality: {sample.quality_score}/100" if sample.quality_score else ""
+                    context_part = f" for {context_summary}" if context_summary else ""
+                    
+                    sample_texts.append(
                         f"""
-                        **Sample {i}:**
+                        **Similar Sample {i}** ({type_title}{context_part}{quality_text}):
                         ```
-                        {sample}
+                        {sample.content}
                         ```
                         """
                     )
-                writing_samples_section = \
-                        f"""
-                        {chr(10).join(sample_texts)}
-                        """
+
+                writing_samples_section = f"\n{chr(10).join(sample_texts)}"
 
         response = await self._generate(
             self.get_system_prompt(),

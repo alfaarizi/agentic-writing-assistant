@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import uuid
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, Callable, List
 from dataclasses import dataclass, asdict
@@ -13,6 +14,7 @@ from agents.editing_agent import EditingAgent
 from agents.personalization_agent import PersonalizationAgent
 from agents.quality_assurance_agent import QualityAssuranceAgent
 from models.writing import WritingRequest, WritingResponse
+from models.user import WritingSample
 from storage.database import Database
 from utils import generate_request_id
 
@@ -53,6 +55,7 @@ class OrchestratorAgent(BaseAgent):
             database: Database instance (injected dependency)
         """
         super().__init__(model=model, temperature=temperature, tools=None)
+        self.database = database
         self.research_agent = ResearchAgent(model=model)
         self.writing_agent = WritingAgent(model=model)
         self.editing_agent = EditingAgent(model=model)
@@ -247,6 +250,7 @@ You ensure high-quality, personalized writing delivered efficiently and reliably
             profile_chunks = self.personalization_agent._retrieve_relevant_chunks(
                 request.user_id,
                 f"{request.type} for {request.context.model_dump()}",
+                request.type,
                 request.context.model_dump()
             )
 
@@ -266,7 +270,8 @@ You ensure high-quality, personalized writing delivered efficiently and reliably
             personalized_content = await self.personalization_agent.personalize(
                 draft,
                 request.user_id,
-                request.context.model_dump(),
+                request.type,
+                request.context.model_dump()
             )
             self._emit('personalizing', 60, 'Personalization complete', data=personalized_content)
 
@@ -294,8 +299,30 @@ You ensure high-quality, personalized writing delivered efficiently and reliably
                 request.requirements,
                 request.requirements.quality_threshold,
             )
-            self._emit('assessing', 95, 'Assessment complete', data={'assessment': assessment.model_dump() if hasattr(assessment, 'model_dump') else assessment, 'suggestions': suggestions})
+            assessment_data = {
+                'assessment': assessment.model_dump() if hasattr(assessment, 'model_dump') else assessment,
+                'suggestions': suggestions
+            }
+            self._emit('assessing', 95, 'Assessment complete', data=assessment_data)
 
+            if (quality_score := getattr(assessment.quality_metrics, 'overall_score', None) if assessment and assessment.quality_metrics else None):
+                if quality_score >= 80.0 and self.database:
+                    try:
+                        now = datetime.now(timezone.utc)
+                        context_dict = request.context.model_dump() if hasattr(request.context, 'model_dump') else {}
+                        await self.database.save_writing_sample(WritingSample(
+                            sample_id=str(uuid.uuid4()),
+                            user_id=request.user_id,
+                            content=refined_content,
+                            type=request.type,
+                            context=context_dict,
+                            quality_score=quality_score,
+                            created_at=now,
+                            updated_at=now,
+                        ))
+                        self._emit('saving', 98, f'Auto-saved as writing sample (Quality: {quality_score:.1f}/100)')
+                    except Exception:
+                        pass
 
             # Step 6: Complete
             self._emit('complete', 100, 'Writing generation complete!')

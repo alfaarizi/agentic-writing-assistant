@@ -44,8 +44,9 @@ async def root():
 
 
 # Include API v1 routes
-from api.v1 import health, profile, writing
+from api.v1 import health, profile, writing, writing_samples
 
 app.include_router(health.router, prefix=settings.API_BASE_URL, tags=["health"])
 app.include_router(writing.router, prefix=settings.API_BASE_URL, tags=["writing"])
 app.include_router(profile.router, prefix=settings.API_BASE_URL, tags=["profile"])
+app.include_router(writing_samples.router, prefix=settings.API_BASE_URL, tags=["writing-samples"])

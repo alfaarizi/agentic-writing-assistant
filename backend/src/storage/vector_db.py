@@ -49,6 +49,26 @@ class VectorDB:
             ids=ids or [f"doc_{i}" for i in range(len(documents))],
         )
 
+    def upsert_documents(
+        self,
+        documents: List[str],
+        metadatas: Optional[List[dict]] = None,
+        ids: Optional[List[str]] = None,
+    ) -> None:
+        """
+        Upsert documents to the vector database (insert or update).
+
+        Args:
+            documents: List of document texts
+            metadatas: Optional list of metadata dictionaries
+            ids: Optional list of document IDs
+        """
+        self.collection.upsert(
+            documents=documents,
+            metadatas=metadatas or [{}] * len(documents),
+            ids=ids or [f"doc_{i}" for i in range(len(documents))],
+        )
+
     def query(
         self,
         query_texts: List[str],

@@ -7,6 +7,7 @@ from models.user import (
     PersonalInfo,
     UserProfile,
     WritingPreferences,
+    WritingSample,
 )
 from models.writing import (
     CoverLetterContext,
@@ -41,6 +42,7 @@ __all__ = [
     "WritingPreferences",
     "Education",
     "Experience",
+    "WritingSample",
     # Common models
     "ErrorResponse",
     "HealthResponse",

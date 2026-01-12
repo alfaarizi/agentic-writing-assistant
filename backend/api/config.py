@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     SQLITE_DB_PATH: str = "./data/writing_assistant.db"
 
     # Application
+    API_VERSION: str = "0.1.0"
     API_BASE_URL: str = "/api/v1"
     ENVIRONMENT: str = "development"
     FRONTEND_URL: str = "http://localhost:5173"

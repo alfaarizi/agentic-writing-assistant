@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import StrEnum
-from typing import List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, EmailStr, Field, HttpUrl, model_validator
 
@@ -346,41 +346,46 @@ class UserProfile(BaseModel):
         # ============================================
 
         for idx, edu in enumerate(self.education):
-            parts = [f"Education: {edu.degree} in {edu.field_of_study or 'N/A'} at {edu.school}"]
-            parts.append(f"Duration: {edu.start_date or 'N/A'} to {edu.end_date or 'Present'}")
+            text = f"Studied {edu.degree}"
+            if edu.field_of_study:
+                text += f" in {edu.field_of_study}"
+            text += f" at {edu.school}"
+            if edu.start_date or edu.end_date:
+                text += f" from {edu.start_date or 'N/A'} to {edu.end_date or 'present'}"
             if edu.grade:
-                parts.append(f"Grade: {edu.grade}")
+                text += f", achieved {edu.grade}"
             if edu.description:
-                parts.append(edu.description)
+                text += f". {edu.description}"
             
             chunks.append({
-                "text": ". ".join(parts),
-                "metadata": {**base_meta, "type": "education", "school": edu.school},
+                "text": text,
+                "metadata": {**base_meta, "type": "education"},
                 "id": f"{self.user_id}_education_{idx}",
             })
 
         for idx, exp in enumerate(self.experience):
-            parts = [f"Experience: {exp.position} at {exp.company}"]
-            parts.append(f"Duration: {exp.start_date or 'N/A'} to {exp.end_date or 'Present'}")
+            text = f"Worked as {exp.position} at {exp.company}"
+            if exp.start_date or exp.end_date:
+                text += f" from {exp.start_date or 'N/A'} to {exp.end_date or 'present'}"
             if exp.description:
-                parts.append(exp.description)
+                text += f". {exp.description}"
             if exp.achievements:
-                parts.append(f"Achievements: {exp.achievements}")
+                text += f". Key achievements: {exp.achievements}"
             
             chunks.append({
-                "text": ". ".join(parts),
-                "metadata": {**base_meta, "type": "experience", "company": exp.company},
+                "text": text,
+                "metadata": {**base_meta, "type": "experience"},
                 "id": f"{self.user_id}_experience_{idx}",
             })
 
         for idx, proj in enumerate(self.projects):
-            parts = [f"Project: {proj.name}", proj.description]
+            text = f"Built {proj.name}: {proj.description}"
             if proj.skills:
-                parts.append(f"Technologies: {', '.join(proj.skills)}")
+                text += f". Technologies used: {', '.join(proj.skills)}"
             
             chunks.append({
-                "text": ". ".join(parts),
-                "metadata": {**base_meta, "type": "project", "name": proj.name},
+                "text": text,
+                "metadata": {**base_meta, "type": "project"},
                 "id": f"{self.user_id}_project_{idx}",
             })
 
@@ -389,34 +394,34 @@ class UserProfile(BaseModel):
         # ============================================
 
         for idx, cert in enumerate(self.certifications):
-            parts = [f"Certification: {cert.name} from {cert.issuer}"]
+            text = f"Certified in {cert.name} by {cert.issuer}"
             if cert.skills:
-                parts.append(f"Skills: {', '.join(cert.skills)}")
+                text += f", covering {', '.join(cert.skills)}"
             
             chunks.append({
-                "text": ". ".join(parts),
+                "text": text,
                 "metadata": {**base_meta, "type": "certification"},
                 "id": f"{self.user_id}_certification_{idx}",
             })
 
         for idx, award in enumerate(self.awards):
-            parts = [f"Award: {award.title} from {award.issuer}"]
+            text = f"Received {award.title} from {award.issuer}"
             if award.description:
-                parts.append(award.description)
+                text += f". {award.description}"
             
             chunks.append({
-                "text": ". ".join(parts),
+                "text": text,
                 "metadata": {**base_meta, "type": "award"},
                 "id": f"{self.user_id}_award_{idx}",
             })
 
         for idx, pub in enumerate(self.publications):
-            parts = [f"Publication: {pub.title}"]
+            text = f"Published {pub.title}"
             if pub.description:
-                parts.append(pub.description)
+                text += f". {pub.description}"
             
             chunks.append({
-                "text": ". ".join(parts),
+                "text": text,
                 "metadata": {**base_meta, "type": "publication"},
                 "id": f"{self.user_id}_publication_{idx}",
             })
@@ -426,12 +431,12 @@ class UserProfile(BaseModel):
         # ============================================
 
         for idx, vol in enumerate(self.volunteering):
-            parts = [f"Volunteering: {vol.role} at {vol.organization}"]
+            text = f"Volunteered as {vol.role} at {vol.organization}"
             if vol.description:
-                parts.append(vol.description)
+                text += f". {vol.description}"
             
             chunks.append({
-                "text": ". ".join(parts),
+                "text": text,
                 "metadata": {**base_meta, "type": "volunteering"},
                 "id": f"{self.user_id}_volunteering_{idx}",
             })
@@ -441,25 +446,25 @@ class UserProfile(BaseModel):
         # ============================================
 
         for idx, skill in enumerate(self.skills):
-            parts = [f"Skill: {skill.name}"]
+            text = f"Skilled in {skill.name}"
             if skill.proficiency:
-                parts.append(f"Proficiency: {skill.proficiency.value}")
+                text += f" with {skill.proficiency.value} proficiency"
             if skill.years_experience:
-                parts.append(f"Experience: {skill.years_experience} years")
+                text += f" ({skill.years_experience} years of experience)"
             
             chunks.append({
-                "text": ". ".join(parts),
-                "metadata": {**base_meta, "type": "skill", "name": skill.name},
+                "text": text,
+                "metadata": {**base_meta, "type": "skill"},
                 "id": f"{self.user_id}_skill_{idx}",
             })
 
         for idx, lang in enumerate(self.languages):
-            parts = [f"Language: {lang.name}"]
+            text = f"Speaks {lang.name}"
             if lang.proficiency:
-                parts.append(f"Proficiency: {lang.proficiency.value}")
+                text += f" at {lang.proficiency.value} level"
             
             chunks.append({
-                "text": ". ".join(parts),
+                "text": text,
                 "metadata": {**base_meta, "type": "language"},
                 "id": f"{self.user_id}_language_{idx}",
             })
@@ -469,29 +474,123 @@ class UserProfile(BaseModel):
         # ============================================
 
         for idx, social in enumerate(self.socials):
-            parts = [f"Social: {social.platform}"]
-            parts.append(f"URL: {social.url}")
+            text = f"Active on {social.platform}"
             if social.username:
-                parts.append(f"Username: {social.username}")
+                text += f" as @{social.username}"
             
             chunks.append({
-                "text": ". ".join(parts),
+                "text": text,
                 "metadata": {**base_meta, "type": "social", "platform": social.platform},
                 "id": f"{self.user_id}_social_{idx}",
             })
 
         for idx, rec in enumerate(self.recommendations):
-            parts = [f"Recommendation from {rec.name}"]
+            text = f"Recommendation from {rec.name}"
             if rec.position:
-                parts.append(f"Position: {rec.position}")
+                text += f", {rec.position}"
             if rec.relationship:
-                parts.append(f"Relationship: {rec.relationship}")
-            parts.append(f"Message: {rec.message}")
+                text += f" ({rec.relationship})"
+            text += f": {rec.message}"
             
             chunks.append({
-                "text": ". ".join(parts),
+                "text": text,
                 "metadata": {**base_meta, "type": "recommendation"},
                 "id": f"{self.user_id}_recommendation_{idx}",
             })
 
         return chunks
+
+
+# ============================================
+# Writing Sample Model
+# ============================================
+# Model for storing user's writing samples for personalization
+
+
+class WritingSample(BaseModel):
+    """User's writing sample for personalization and reference."""
+
+    sample_id: str
+    user_id: str
+    content: str
+    type: Literal["cover_letter", "motivational_letter", "email", "social_response"]
+    context: Dict[str, Any]
+    quality_score: Optional[float] = None
+    created_at: datetime
+    updated_at: datetime
+
+    def to_vectordb_chunk(self) -> dict:
+        """Convert writing sample to VectorDB chunk for semantic search."""
+        ctx = self.context
+
+        # ============================================
+        # Cover Letter sample
+        # ============================================
+        
+        if self.type == "cover_letter":
+            job_title = ctx.get("job_title")
+            company = ctx.get("company")
+            if job_title and company:
+                prefix = f"Cover letter for {job_title} position at {company}"
+            elif job_title:
+                prefix = f"Cover letter for {job_title} position"
+            elif company:
+                prefix = f"Cover letter for position at {company}"
+            else:
+                prefix = "Cover letter for job application"
+
+        # ============================================
+        # Motivational Letter sample
+        # ============================================
+        
+        elif self.type == "motivational_letter":
+            program = ctx.get("program_name")
+            scholarship = ctx.get("scholarship_name")
+            if program and scholarship:
+                prefix = f"Motivational letter for {program} with {scholarship}"
+            elif program:
+                prefix = f"Motivational letter for {program}"
+            elif scholarship:
+                prefix = f"Motivational letter for {scholarship}"
+            else:
+                prefix = "Motivational letter for program application"
+            
+        # ============================================
+        # Email sample
+        # ============================================
+        
+        elif self.type == "email":
+            subject = ctx.get("subject")
+            prefix = f"Email about {subject}" if subject else "Email correspondence"
+        
+        # ============================================
+        # Social Response sample
+        # ============================================
+        
+        elif self.type == "social_response":
+            post = ctx.get("post_content", "")
+            post_preview = f"{post[:50]}..." if len(post) > 50 else post
+            prefix = f"Social media response to: {post_preview}" if post else "Social media response"
+        
+        else:
+            prefix = self.type.replace("_", " ").title()
+        
+        metadata = {
+            "user_id": self.user_id,
+            "type": "writing_sample",
+            "sample_id": self.sample_id,
+            "writing_type": self.type,
+        }
+        
+        if self.quality_score is not None:
+            metadata["quality_score"] = self.quality_score
+        
+        for key, value in ctx.items():
+            if value and isinstance(value, (str, int, float, bool)):
+                metadata[key] = value
+        
+        return {
+            "text": f"{prefix}. {self.content}",
+            "metadata": metadata,
+            "id": f"{self.user_id}_sample_{self.sample_id}",
+        }

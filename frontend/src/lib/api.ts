@@ -193,12 +193,9 @@ export async function checkHealth(): Promise<boolean> {
 }
 
 export async function saveProfile(profile: Omit<UserProfile, 'created_at' | 'updated_at'>): Promise<UserProfile> {
-  // Check if profile exists first
   const exists = await getProfile(profile.user_id);
-  
-  // Use PUT if exists, POST if new
   const method = exists ? 'PUT' : 'POST';
-  const url = exists ? `${API_BASE_URL}/profile/${profile.user_id}` : `${API_BASE_URL}/profile`;
+  const url = exists ? `${API_BASE_URL}/users/${profile.user_id}` : `${API_BASE_URL}/users`;
   
   const response = await fetch(url, {
     method,
@@ -215,7 +212,7 @@ export async function saveProfile(profile: Omit<UserProfile, 'created_at' | 'upd
 
 export async function getProfile(userId: string): Promise<UserProfile | null> {
   try {
-    const response = await fetch(`${API_BASE_URL}/profile/${userId}`);
+    const response = await fetch(`${API_BASE_URL}/users/${userId}`);
     if (response.status === 404) return null;
     if (!response.ok) throw new Error('Failed to get profile');
     return response.json();
@@ -228,7 +225,7 @@ export async function uploadResume(userId: string, file: File): Promise<UserProf
   const formData = new FormData();
   formData.append('file', file);
 
-  const response = await fetch(`${API_BASE_URL}/profile/${userId}/resume`, {
+  const response = await fetch(`${API_BASE_URL}/users/${userId}/resume`, {
     method: 'POST',
     body: formData,
   });
@@ -244,14 +241,14 @@ export async function uploadResume(userId: string, file: File): Promise<UserProf
 export type StatusListener = (update: { stage: string; progress: number; message: string; timestamp: string } | { type: 'complete'; data: WritingResponse }) => void;
 
 export async function generateWriting(request: WritingRequest, onStatus?: StatusListener): Promise<WritingResponse> {
-  const response = await fetch(`${API_BASE_URL}/writing`, {
+  const response = await fetch(`${API_BASE_URL}/users/${request.user_id}/writings`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(request),
   });
 
   if (!response.ok) {
-    throw new Error('Failed to start writing stream');
+    throw new Error('Failed to start writing generation');
   }
 
   const reader = response.body!.getReader();
@@ -274,14 +271,12 @@ export async function generateWriting(request: WritingRequest, onStatus?: Status
             const data = JSON.parse(line.slice(6));
             if (data.type === 'complete') {
               result = data.data;
-              if (onStatus) {
-                onStatus(data);
-              }
-            } else if (onStatus) {
-              onStatus(data);
+              onStatus?.(data);
+            } else {
+              onStatus?.(data);
             }
           } catch {
-            // Skip invalid JSON lines
+            // Skip invalid JSON
           }
         }
       }
