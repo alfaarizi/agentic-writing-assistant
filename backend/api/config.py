@@ -66,7 +66,11 @@ class Settings(BaseSettings):
     @property
     def BACKEND_CORS_ORIGINS(self) -> List[str]:
         """Get CORS allowed origins."""
-        return [self.FRONTEND_URL]
+        origin = self.FRONTEND_URL.rstrip("/")
+        origins = [origin]
+        if self.is_development:
+            origins.append("http://localhost:5173")
+        return origins
 
 
 settings = Settings()

@@ -1,5 +1,6 @@
 """FastAPI application main file."""
 
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -8,12 +9,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.dependencies import database
 from api.config import settings
 
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup and shutdown."""
     # Startup
     await database.initialize()
+    logger.info(f"CORS allowed origins: {settings.BACKEND_CORS_ORIGINS}")
+    logger.info(f"Frontend URL: {settings.FRONTEND_URL}")
     yield
     # Shutdown (if needed)
 

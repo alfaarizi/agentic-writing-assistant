@@ -1,17 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Circle } from 'lucide-react';
+import { checkHealth } from '@/lib/api';
 
 export function Header() {
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
     const checkConnection = async () => {
-      try {
-        const response = await fetch('/api/v1/health');
-        setConnected(response.ok);
-      } catch {
-        setConnected(false);
-      }
+      const isHealthy = await checkHealth();
+      setConnected(isHealthy);
     };
 
     checkConnection();
