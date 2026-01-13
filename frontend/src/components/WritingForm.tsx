@@ -105,7 +105,7 @@ export function WritingForm({ userId, onGenerate, loading, disabled }: WritingFo
                 Cover
               </TabsTrigger>
               <TabsTrigger value="motivational_letter" className="text-xs h-7 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
-                Motivational
+                Motlet
               </TabsTrigger>
               <TabsTrigger value="social_response" className="text-xs h-7 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
                 Social
