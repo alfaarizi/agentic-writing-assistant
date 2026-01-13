@@ -358,9 +358,11 @@ Return ONLY a JSON object (no markdown code blocks, no explanations):
             for match in grammar_result.get('matches', [])[:10]:
                 message = match.get('message', 'Unknown error')
                 context_text = match.get('context', {}).get('text', '')
-                issues_list.append(
-                    f"- {message}{(' (in: \'' + context_text[:50] + '\')' if context_text else '')}"
-                )
+                if context_text:
+                    context_preview = f" (in: '{context_text[:50]}')"
+                else:
+                    context_preview = ""
+                issues_list.append(f"- {message}{context_preview}")
             
             grammar_section = \
                 f"""
