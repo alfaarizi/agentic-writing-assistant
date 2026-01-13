@@ -460,7 +460,8 @@ Requirements:
                     f"**Style:** {style or 'Not specified'}"
                 ]
                 if common_phrases:
-                    parts.append(f"**Common Phrases:** {', '.join(f'\"' + p + '\"' for p in common_phrases)}")
+                    quoted_phrases = ', '.join(f'"{p}"' for p in common_phrases)
+                    parts.append(f"**Common Phrases:** {quoted_phrases}")
 
                 writing_style_section = f"\n{chr(10).join(parts)}"
 
