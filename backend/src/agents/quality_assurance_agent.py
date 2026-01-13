@@ -41,7 +41,7 @@ class QualityAssuranceAgent(BaseAgent):
 
 # YOUR ROLE IN THE SYSTEM
 You are the FINAL CHECKPOINT before content reaches the user. You receive:
-- Refined content (from EditingAgent)
+- Refined content (from RefinerAgent)
 - Text statistics (from TextAnalyzer)
 - Grammar analysis (from GrammarChecker)
 - Requirements to validate against
@@ -495,3 +495,9 @@ Return ONLY a JSON object (no markdown code blocks, no explanations):
                 suggestions.append("Address grammar issues identified in analysis")
 
         return suggestions
+
+
+    @staticmethod
+    def check_requirements_met(assessment) -> bool:
+        """Check if all requirements are met in the assessment."""
+        return all(assessment.requirements_checks.values()) if assessment.requirements_checks else True

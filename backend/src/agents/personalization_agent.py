@@ -28,40 +28,59 @@ class PersonalizationAgent(BaseAgent):
         self.database = database
 
 
-    def _retrieve_relevant_chunks(
-            self, 
-            user_id: str, 
-            content: str, 
-            writing_type: str, 
+    def _retrieve_relevant_profile_chunks(
+            self,
+            user_id: str,
+            content: str,
+            writing_type: str,
             writing_context: Dict[str, Any]
         ) -> List[str]:
-        """Retrieve relevant profile chunks via semantic search."""
+        """Retrieve relevant profile chunks via semantic search.
+
+        Args:
+            user_id: User ID to retrieve profile for
+            content: Content to use for semantic matching
+            writing_type: Type of writing being generated
+            writing_context: Context for the writing (job_title, company, etc.)
+
+        Returns:
+            List of relevant profile text chunks
+        """
         if not self.database or not self.database.vector_db:
             return []
 
         try:
             queries = []
+
+            # Use content itself for semantic matching if available
             if content and len(content) > 50:
                 queries.append(content[:500])
 
+            # Build semantic query from writing type and context
             if writing_type == "cover_letter":
+                queries.append(f"job application for {writing_context.get('job_title', '')} at {writing_context.get('company', '')}")
                 if job_title := writing_context.get("job_title"):
                     queries.append(f"relevant work experience and skills for {job_title} position")
                 if company := writing_context.get("company"):
                     queries.append(f"professional background relevant to {company}")
             elif writing_type == "motivational_letter":
+                queries.append(f"application for {writing_context.get('program_name', '')} {writing_context.get('scholarship_name', '')}")
                 if program_name := writing_context.get("program_name"):
                     queries.append(f"academic background and achievements for {program_name}")
                 if scholarship_name := writing_context.get("scholarship_name"):
                     queries.append(f"accomplishments and qualifications for {scholarship_name}")
             elif writing_type == "social_response":
+                queries.append(f"response to {writing_context.get('post_content', '')[:50]}")
                 if post_content := writing_context.get("post_content"):
                     queries.append(f"relevant experience for: {post_content[:200]}")
                 if reply_to := writing_context.get("reply_to"):
                     queries.append(f"background for engaging with {reply_to}")
             elif writing_type == "email":
+                queries.append(f"professional email about {writing_context.get('subject', '')}")
                 if subject := writing_context.get("subject"):
                     queries.append(f"expertise and experience for: {subject}")
+            else:
+                queries.append(f"{writing_type} writing sample")
 
             if not queries:
                 queries.append("professional background work experience education skills achievements")
@@ -84,7 +103,7 @@ class PersonalizationAgent(BaseAgent):
             return []
 
 
-    async def _retrieve_similar_samples(
+    async def _retrieve_similar_writing_samples(
             self, 
             user_id: str, 
             content: str,
@@ -319,7 +338,7 @@ Return a JSON object with the "content" key:
 - No markdown code blocks around the JSON
 
 # REMEMBER
-You're the bridge between generic draft and authentic voice. EditingAgent will polish grammar later—focus on making it sound like THEM.
+You're the bridge between generic draft and authentic voice. RefinerAgent will polish grammar later—focus on making it sound like THEM.
 """
 
 
@@ -402,7 +421,7 @@ Requirements:
         if not (profile := await self.database.get_user_profile(user_id)):
             return content
 
-        relevant_chunks = self._retrieve_relevant_chunks(
+        profile_chunks = self._retrieve_relevant_profile_chunks(
             user_id,
             content,
             writing_type,
@@ -421,11 +440,11 @@ Requirements:
 
         # build relevant profile section
         relevant_profile_section = ""
-        if relevant_chunks:
+        if profile_chunks:
             relevant_profile_section = \
                 f"""
                 ## Relevant Background & Experience
-                {chr(10).join(f"- {chunk}" for chunk in relevant_chunks)}
+                {chr(10).join(f"- {chunk}" for chunk in profile_chunks)}
                 """
 
         # build writing style section
@@ -448,7 +467,7 @@ Requirements:
         # build writing samples section
         writing_samples_section = ""
         if writing_type:
-            similar_samples = await self._retrieve_similar_samples(
+            similar_samples = await self._retrieve_similar_writing_samples(
                 user_id, 
                 content, 
                 writing_type, 

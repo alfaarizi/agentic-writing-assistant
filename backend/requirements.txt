@@ -1,16 +1,18 @@
 # FastAPI and web framework
 fastapi>=0.104.1
 uvicorn[standard]==0.24.0
-pydantic==2.5.0
+pydantic[email]==2.5.0
 pydantic-settings==2.1.0
+email-validator>=2.0.0
 
 # LangChain and agent framework
-langchain==0.1.20
-langchain-openai==0.1.7
-langchain-community==0.0.38
-langchain-core==0.1.52
+langchain>=0.2.0,<0.3.0
+langchain-openai>=0.1.7
+langchain-community>=0.2.0
+langchain-core>=0.2.0,<0.3.0
+langgraph==0.0.62
 
-# Vector database (using older version without onnxruntime requirement)
+# Vector database
 chromadb==0.4.18
 
 # Database
@@ -27,6 +29,8 @@ structlog==23.2.0
 
 # Utilities
 python-multipart==0.0.6
+pdfplumber>=0.10.0
+python-docx>=1.1.0
 
 # Testing
 pytest==7.4.3

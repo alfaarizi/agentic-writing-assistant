@@ -40,7 +40,7 @@ You are a professional Content Writer with expertise in crafting compelling, aut
 You work within a multi-agent writing system where:
 - Your draft serves as the foundation for further refinement
 - PersonalizationAgent will adapt your content to the user's voice
-- EditingAgent will polish and refine your work
+- RefinerAgent will polish and refine your work
 - Focus on strong structure and clear communication
 
 # CORE WRITING PRINCIPLES
@@ -136,7 +136,7 @@ Return a JSON object with the "content" key:
 - No markdown code blocks around the JSON
 
 # REMEMBER
-Focus on structure and clarity. PersonalizationAgent will adapt the voice, and EditingAgent will polish the content. Your job is to create a solid foundation with strong messaging and logical flow.
+Focus on structure and clarity. PersonalizationAgent will adapt the voice, and RefinerAgent will polish the content. Your job is to create a solid foundation with strong messaging and logical flow.
 """
 
 
@@ -146,7 +146,6 @@ Focus on structure and clarity. PersonalizationAgent will adapt the voice, and E
         context_section: str,
         requirements_section: str,
         research_section: str,
-        profile_section: str,
         additional_section: str,
     ) -> str:
         """Build user prompt for writing task.
@@ -156,7 +155,6 @@ Focus on structure and clarity. PersonalizationAgent will adapt the voice, and E
             context_section: Pre-formatted context section
             requirements_section: Pre-formatted requirements section
             research_section: Pre-formatted research section
-            profile_section: Pre-formatted profile section
             additional_section: Pre-formatted additional instructions section
 
         Returns:
@@ -171,7 +169,7 @@ Write a {writing_type_display} that is compelling, well-structured, and professi
 {writing_type_display}
 
 # CONTEXT{context_section}
-# REQUIREMENTS{requirements_section}{research_section}{profile_section}{additional_section}
+# REQUIREMENTS{requirements_section}{research_section}{additional_section}
 
 # OUTPUT INSTRUCTIONS
 Write the complete content now. Remember to:
@@ -202,7 +200,6 @@ Do NOT include:
         self,
         request: WritingRequest,
         research_data: Dict[str, Any],
-        profile_chunks: List[str] = None,
     ) -> str:
         """Generate initial writing draft with relevant profile context."""
         # Build context section
@@ -248,17 +245,6 @@ Do NOT include:
                 {"".join(research_items)}
                 """
 
-        # Build profile section from relevant chunks
-        profile_section = ""
-        if profile_chunks:
-            profile_section = \
-                f"""
-
-                # USER BACKGROUND
-                Integrate relevant details naturally (detailed personalization applied later):
-                {chr(10).join(f"- {chunk}" for chunk in profile_chunks)}
-                """
-
         # Build additional info section
         additional_section = ""
         if request.additional_info:
@@ -276,7 +262,6 @@ Do NOT include:
                 context_section,
                 requirements_section,
                 research_section,
-                profile_section,
                 additional_section,
             ),
             temperature=self.temperature,

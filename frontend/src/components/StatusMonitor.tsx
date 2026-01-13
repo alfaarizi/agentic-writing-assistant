@@ -5,7 +5,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 export interface StatusUpdate {
-  stage: 'orchestrating' | 'researching' | 'writing' | 'assessing' | 'refining' | 'personalizing' | 'complete' | 'error';
+  stage: string;
   progress: number;
   message: string;
   details?: string;
@@ -18,23 +18,25 @@ interface StatusMonitorProps {
   agentData?: Record<string, any>;
 }
 
-const stageConfig = {
-  orchestrating: { label: 'Orchestrating', color: 'text-blue-600', bgColor: 'bg-blue-50', borderColor: 'border-blue-200' },
-  researching: { label: 'Researching', color: 'text-purple-600', bgColor: 'bg-purple-50', borderColor: 'border-purple-200' },
-  writing: { label: 'Writing', color: 'text-indigo-600', bgColor: 'bg-indigo-50', borderColor: 'border-indigo-200' },
-  assessing: { label: 'Assessing', color: 'text-green-600', bgColor: 'bg-green-50', borderColor: 'border-green-200' },
-  refining: { label: 'Refining', color: 'text-orange-600', bgColor: 'bg-orange-50', borderColor: 'border-orange-200' },
-  personalizing: { label: 'Personalizing', color: 'text-pink-600', bgColor: 'bg-pink-50', borderColor: 'border-pink-200' },
+const stageConfig: Record<string, { label: string; color: string; bgColor: string; borderColor: string }> = {
+  research: { label: 'Researching', color: 'text-purple-600', bgColor: 'bg-purple-50', borderColor: 'border-purple-200' },
+  write: { label: 'Writing', color: 'text-indigo-600', bgColor: 'bg-indigo-50', borderColor: 'border-indigo-200' },
+  personalize: { label: 'Personalizing', color: 'text-pink-600', bgColor: 'bg-pink-50', borderColor: 'border-pink-200' },
+  assess: { label: 'Assessing', color: 'text-green-600', bgColor: 'bg-green-50', borderColor: 'border-green-200' },
+  refine: { label: 'Refining', color: 'text-orange-600', bgColor: 'bg-orange-50', borderColor: 'border-orange-200' },
+  analyze: { label: 'Analyzing', color: 'text-cyan-600', bgColor: 'bg-cyan-50', borderColor: 'border-cyan-200' },
+  save: { label: 'Saving', color: 'text-blue-600', bgColor: 'bg-blue-50', borderColor: 'border-blue-200' },
   complete: { label: 'Complete', color: 'text-green-600', bgColor: 'bg-green-50', borderColor: 'border-green-200' },
   error: { label: 'Error', color: 'text-red-600', bgColor: 'bg-red-50', borderColor: 'border-red-200' },
 };
 
 const agentLabels: Record<string, string> = {
-  researching: 'Research Agent',
-  writing: 'Writing Agent',
-  personalizing: 'Personalization Agent',
-  refining: 'Editing Agent',
-  assessing: 'Quality Assurance Agent',
+  research: 'Research Agent',
+  write: 'Writing Agent',
+  personalize: 'Personalization Agent',
+  refine: 'Refining Agent',
+  assess: 'Quality Assurance Agent',
+  analyze: 'Gap Analyzer',
 };
 
 function formatAgentData(data: any): string {
@@ -48,13 +50,18 @@ export function StatusMonitor({ status, isActive, agentData = {} }: StatusMonito
   if (!status && !isActive) return null;
 
   const currentStatus = status || {
-    stage: 'orchestrating' as const,
+    stage: 'research',
     progress: 0,
     message: 'Initializing...',
     timestamp: new Date().toISOString(),
   };
 
-  const config = stageConfig[currentStatus.stage];
+  const config = stageConfig[currentStatus.stage] || {
+    label: currentStatus.stage.charAt(0).toUpperCase() + currentStatus.stage.slice(1),
+    color: 'text-gray-600',
+    bgColor: 'bg-gray-50',
+    borderColor: 'border-gray-200',
+  };
   const isLoadingStage = isActive && currentStatus.stage !== 'complete' && currentStatus.stage !== 'error';
   const Icon = isLoadingStage ? Loader2 : currentStatus.stage === 'complete' ? CheckCircle2 : currentStatus.stage === 'error' ? AlertCircle : Clock;
 
