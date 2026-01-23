@@ -26,7 +26,8 @@ import {
   Languages,
   Link as LinkIcon,
   MessageSquare,
-  Trash2
+  Trash2,
+  Download
 } from 'lucide-react';
 import { getProfile, saveProfile, uploadResume, getWritingSamples, type UserProfile, type WritingPreferences, type WritingSample } from '@/lib/api';
 import { EducationInput } from './profile/EducationInput';
@@ -484,6 +485,139 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
     setResumeUploaded(false);
   };
 
+  const handleExport = () => {
+    const exportData: any = {
+      "Personal Information": {
+        "First Name": firstName || "",
+        "Last Name": lastName || "",
+        "Preferred Name": preferredName || "",
+        "Pronouns": pronouns || "",
+        "Date of Birth": dateOfBirth || "",
+        "Email": email || "",
+        "Phone": phone || "",
+        "City": city || "",
+        "Country": country || "",
+        "Citizenship": citizenship || "",
+        "Headline": headline || "",
+        "Summary": summary || "",
+        "Background": background || "",
+        "Interests": interests ? interests.split(',').map(i => i.trim()).filter(Boolean) : []
+      },
+      "Education": (education || []).map(edu => ({
+        "School": edu.school || "",
+        "Degree": edu.degree || "",
+        "Field of Study": edu.field_of_study || "",
+        "Start Date": edu.start_date || "",
+        "End Date": edu.end_date || "",
+        "GPA": edu.grade || "",
+        "Activities": edu.activities || "",
+        "Description": edu.description || "",
+        "Skills": edu.skills || []
+      })),
+      "Experience": (experience || []).map(exp => ({
+        "Company": exp.company || "",
+        "Position": exp.position || "",
+        "Employment Type": exp.employment_type || "",
+        "Location": exp.location || "",
+        "Location Type": exp.location_type || "",
+        "Start Date": exp.start_date || "",
+        "End Date": exp.end_date || "",
+        "Description": exp.description || "",
+        "Achievements": exp.achievements || "",
+        "Skills": exp.skills || []
+      })),
+      "Skills": (skills || []).map(skill => ({
+        "Name": skill.name || "",
+        "Proficiency": skill.proficiency || "",
+        "Years Experience": skill.years_experience || ""
+      })),
+      "Projects": (projects || []).map(proj => ({
+        "Name": proj.name || "",
+        "Description": proj.description || "",
+        "Start Date": proj.start_date || "",
+        "End Date": proj.end_date || "",
+        "URL": proj.url || "",
+        "Skills": proj.skills || [],
+        "Contributors": proj.contributors || [],
+        "Associated With": proj.associated_with || ""
+      })),
+      "Certifications": (certifications || []).map(cert => ({
+        "Name": cert.name || "",
+        "Issuer": cert.issuer || "",
+        "Issue Date": cert.issue_date || "",
+        "Expiration Date": cert.expiration_date || "",
+        "Credential ID": cert.credential_id || "",
+        "Credential URL": cert.credential_url || "",
+        "Skills": cert.skills || []
+      })),
+      "Awards": (awards || []).map(award => ({
+        "Title": award.title || "",
+        "Issuer": award.issuer || "",
+        "Issue Date": award.issue_date || "",
+        "Description": award.description || "",
+        "Associated With": award.associated_with || ""
+      })),
+      "Publications": (publications || []).map(pub => ({
+        "Title": pub.title || "",
+        "Publisher": pub.publisher || "",
+        "Publication Date": pub.publication_date || "",
+        "URL": pub.url || "",
+        "Description": pub.description || "",
+        "Authors": pub.authors || []
+      })),
+      "Volunteering": (volunteering || []).map(vol => ({
+        "Organization": vol.organization || "",
+        "Role": vol.role || "",
+        "Cause": vol.cause || "",
+        "Start Date": vol.start_date || "",
+        "End Date": vol.end_date || "",
+        "Description": vol.description || ""
+      })),
+      "Languages": (languages || []).map(lang => ({
+        "Name": lang.name || "",
+        "Proficiency": lang.proficiency || ""
+      })),
+      "Social Links": (socials || []).map(social => ({
+        "Platform": social.platform || "",
+        "URL": social.url || "",
+        "Username": social.username || ""
+      })),
+      "Recommendations": (recommendations || []).map(rec => ({
+        "Name": rec.name || "",
+        "Position": rec.position || "",
+        "Relationship": rec.relationship || "",
+        "Message": rec.message || "",
+        "Date": rec.date || ""
+      })),
+      "Writing Preferences": {
+        "Tone": writingPreferences.tone || "",
+        "Style": writingPreferences.style || "",
+        "Common Phrases": writingPreferences.common_phrases || []
+      },
+      "Writing Samples": (writingSamples || []).map(sample => ({
+        "Sample ID": sample.sample_id || "",
+        "User ID": sample.user_id || "",
+        "Content": sample.content || "",
+        "Type": sample.type || "",
+        "Context": sample.context || {},
+        "Quality Score": sample.quality_score || "",
+        "Created At": sample.created_at || "",
+        "Updated At": sample.updated_at || ""
+      }))
+    };
+
+    const jsonString = JSON.stringify(exportData, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `profile-export-${userId || 'profile'}-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const isDisabled = loading || fetching || uploading;
 
   return (
@@ -494,16 +628,29 @@ export function ProfileForm({ userId, onUserIdChange, onProfileSaved }: ProfileF
             <User className="h-4 w-4" />
             Profile Information
           </CardTitle>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleClearAll}
-            disabled={isDisabled}
-            className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-            title="Clear all profile data"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleExport}
+              disabled={isDisabled}
+              className="h-8 px-2 gap-1.5 text-primary hover:text-primary hover:bg-primary/10"
+              title="Export profile as JSON"
+            >
+              <Download className="h-4 w-4" />
+              <span className="text-xs">Export</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClearAll}
+              disabled={isDisabled}
+              className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+              title="Clear all profile data"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
