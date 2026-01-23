@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Circle } from 'lucide-react';
+import { Circle, Github } from 'lucide-react';
 import { checkHealth } from '@/lib/api';
 
 export function Header() {
@@ -26,11 +26,22 @@ export function Header() {
               <span>Writing Assistant</span>
             </h1>
           </div>
-          <div className="flex items-center gap-2 text-xs flex-shrink-0">
-            <Circle className={`h-2 w-2 ${connected ? 'fill-green-600 text-green-600' : 'fill-red-600 text-red-600'}`} />
-            <span className={`font-semibold ${connected ? 'text-green-600' : 'text-red-600'}`}>
-              {connected ? 'Connected' : 'Disconnected'}
-            </span>
+          <div className="flex items-center gap-4 flex-shrink-0">
+            <a
+              href="https://github.com/alfaarizi/agentic-writing-assistant"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-muted-foreground hover:text-foreground transition-colors"
+              title="View on GitHub"
+            >
+              <Github className="h-5 w-5" />
+            </a>
+            <div className="flex items-center gap-2 text-xs">
+              <Circle className={`h-2 w-2 ${connected ? 'fill-green-600 text-green-600' : 'fill-red-600 text-red-600'}`} />
+              <span className={`font-semibold ${connected ? 'text-green-600' : 'text-red-600'}`}>
+                {connected ? 'Connected' : 'Disconnected'}
+              </span>
+            </div>
           </div>
         </div>
       </div>
